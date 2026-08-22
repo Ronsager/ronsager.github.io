@@ -1,0 +1,51 @@
+# systemd-Dienst für den Raspberry Pi (Benutzer "pi", Projekt in /home/pi).
+#
+# Installation:
+#   sudo cp ~/star-trek-conquest/deploy/raspberry-pi.service \
+#           /etc/systemd/system/star-trek-conquest.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now star-trek-conquest
+#
+# Heißt dein Benutzer nicht "pi", passe User, Group und die Pfade unten an.
+
+[Unit]
+Description=Star Trek Conquest – Browserspiel-Server
+Documentation=file:///home/pi/star-trek-conquest/ANLEITUNG.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/star-trek-conquest
+EnvironmentFile=/home/pi/star-trek-conquest/.env
+ExecStart=/usr/local/bin/node server/index.js
+
+# Nach Absturz oder Stromausfall automatisch neu starten
+Restart=always
+RestartSec=10
+
+# Auf dem Zero 2 W darf der Start etwas länger dauern
+TimeoutStartSec=90
+
+# Absicherung
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=false
+# Nur dieses Verzeichnis darf beschrieben werden (dort liegt die Datenbank).
+# Liegt die Datenbank auf einem USB-Stick (DB_FILE in der .env geändert),
+# muss der Pfad hier ergänzt werden, sonst startet der Dienst nicht:
+#   ReadWritePaths=/home/pi/star-trek-conquest/data /mnt/spieldaten
+ReadWritePaths=/home/pi/star-trek-conquest/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=star-trek-conquest
+
+[Install]
+WantedBy=multi-user.target

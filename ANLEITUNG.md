@@ -186,6 +186,11 @@ npm run reset -- --yes
 Damit Freunde mitspielen können, muss der Server aus dem Internet erreichbar sein.
 Drei erprobte Wege — **Variante B ist für die meisten die beste Wahl.**
 
+> **Du hast einen Raspberry Pi?** Für den Pi (insbesondere den Zero 2 W hinter
+> einer FRITZ!Box) gibt es eine eigene, ausführliche Schritt-für-Schritt-Anleitung:
+> **[RASPBERRY-PI.md](RASPBERRY-PI.md)** — von der Wahl des Betriebssystems bis
+> zur Freigabe ins Internet.
+
 ### Variante A: Heimserver mit Portfreigabe (schnell, aber unverschlüsselt)
 
 1. `.env`: `HOST=0.0.0.0`
@@ -532,7 +537,8 @@ star-trek-conquest/
 │   └── reset.js              Universum zurücksetzen
 │
 └── deploy/
-    ├── star-trek-conquest.service   systemd-Dienst
+    ├── star-trek-conquest.service   systemd-Dienst (Linux-Server)
+    ├── raspberry-pi.service         systemd-Dienst (Raspberry Pi)
     ├── nginx.conf                   Reverse-Proxy mit HTTPS
     ├── Caddyfile                    Alternative mit automatischem HTTPS
     └── backup.sh                    Datenbanksicherung

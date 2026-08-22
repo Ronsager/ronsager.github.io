@@ -1,0 +1,637 @@
+# Star Trek Conquest auf dem Raspberry Pi Zero 2 W
+
+Schritt-für-Schritt-Anleitung vom leeren Pi bis zum Spielserver, der aus dem
+Internet erreichbar ist. Geschrieben für den **Raspberry Pi Zero 2 W** hinter
+einer **FRITZ!Box**.
+
+Alles wird ohne Bildschirm und Tastatur eingerichtet („headless") — du brauchst
+nur deinen normalen Computer, den Pi und WLAN.
+
+**Zeitbedarf:** etwa 60 Minuten, davon 20 Minuten Wartezeit.
+
+---
+
+## Inhalt
+
+1. [Was du brauchst](#1-was-du-brauchst)
+2. [Betriebssystem auf die Speicherkarte schreiben](#2-betriebssystem-auf-die-speicherkarte-schreiben)
+3. [Ersten Start und Anmeldung per SSH](#3-ersten-start-und-anmeldung-per-ssh)
+4. [Feste IP-Adresse in der FRITZ!Box](#4-feste-ip-adresse-in-der-fritzbox)
+5. [Grundeinrichtung des Systems](#5-grundeinrichtung-des-systems)
+6. [Node.js installieren](#6-nodejs-installieren)
+7. [Das Spiel installieren](#7-das-spiel-installieren)
+8. [Als Dienst dauerhaft laufen lassen](#8-als-dienst-dauerhaft-laufen-lassen)
+9. [Aus dem Internet erreichbar machen](#9-aus-dem-internet-erreichbar-machen)
+10. [Datensicherung einrichten](#10-datensicherung-einrichten)
+11. [Wartung und Fehlerbehebung](#11-wartung-und-fehlerbehebung)
+
+---
+
+## 1. Was du brauchst
+
+| Teil | Hinweis |
+|---|---|
+| **Raspberry Pi Zero 2 W** | Das **„2"** ist entscheidend. Der alte Zero / Zero W hat einen ARMv6-Prozessor, für den es kein Node.js mehr gibt |
+| **microSD-Karte, 16 GB** | Markenware mit Kennzeichnung **A1** oder **A2**. Billige No-Name-Karten sind die häufigste Fehlerquelle |
+| **Netzteil mit Micro-USB** | 5 V / mindestens 2 A. **Kein USB-C** — der Zero 2 W hat Micro-USB. Handy-Ladegeräte mit zu wenig Strom führen zu Abstürzen und defekten Karten |
+| **Kartenleser** | Für deinen Computer, zum Beschreiben der Karte |
+| **WLAN, 2,4 GHz** | Der Zero 2 W kann **kein 5-GHz-WLAN**. Siehe Hinweis in Schritt 2 |
+
+Nicht nötig: Bildschirm, Tastatur, HDMI-Adapter, Netzwerkkabel. Der Pi Zero 2 W
+hat ohnehin keinen Ethernet-Anschluss — die Einrichtung läuft komplett über WLAN.
+
+> **Optional, aber empfohlen:** ein USB-Stick oder eine kleine USB-SSD samt
+> **Micro-USB-OTG-Adapter**. Darauf legst du später die Spieldatenbank, was die
+> Speicherkarte schont. Siehe Schritt 7.
+
+---
+
+## 2. Betriebssystem auf die Speicherkarte schreiben
+
+### Welches Betriebssystem?
+
+**Raspberry Pi OS Lite (64 Bit)** — Version Bookworm oder neuer.
+
+* **Lite** = ohne Desktop-Oberfläche. Der Pi soll ein Server sein; eine grafische
+  Oberfläche würde nur Arbeitsspeicher verbrauchen, den wir bei 512 MB nicht
+  verschenken wollen.
+* **64 Bit** = passt zum Cortex-A53-Prozessor des Zero 2 W. Node.js liefert dafür
+  fertige Binärdateien (`linux-arm64`), ebenso die Datenbankbibliothek des Spiels.
+
+> Die 32-Bit-Variante funktioniert ebenfalls (Node.js `linux-armv7l` existiert),
+> aber es gibt keinen Grund dafür. Nimm 64 Bit.
+
+### Raspberry Pi Imager installieren
+
+Lade den **Raspberry Pi Imager** von <https://www.raspberrypi.com/software/>
+herunter und installiere ihn (gibt es für Windows, macOS und Linux).
+
+### Karte beschreiben
+
+1. Speicherkarte in den Kartenleser stecken, Imager starten.
+2. **Modell wählen** → `Raspberry Pi Zero 2 W`
+3. **OS wählen** → `Raspberry Pi OS (other)` → **`Raspberry Pi OS Lite (64-bit)`**
+4. **SD-Karte wählen** → deine Karte (**gut hinschauen — die Karte wird komplett gelöscht**)
+5. Auf **Weiter** klicken. Es erscheint die Frage *„Möchtest du OS-Anpassungen vornehmen?"*
+   → **Einstellungen bearbeiten**
+
+### Die Voreinstellungen — dieser Teil ist der wichtigste
+
+Ohne diese Angaben kommst du später nicht auf den Pi, weil du weder Bildschirm
+noch Tastatur hast.
+
+**Reiter „Allgemein":**
+
+| Feld | Eintrag |
+|---|---|
+| Hostname | `sternenflotte` (frei wählbar, du erreichst den Pi später darüber) |
+| Benutzername | `pi` |
+| Passwort | Ein sicheres Passwort — **notieren!** |
+| WLAN-SSID | Der Name deines WLANs |
+| WLAN-Passwort | Dein WLAN-Schlüssel |
+| WLAN-Land | `DE` |
+| Zeitzone | `Europe/Berlin` |
+| Tastaturlayout | `de` |
+
+**Reiter „Dienste":**
+
+* ✅ **SSH aktivieren** → **Passwort zur Anmeldung verwenden**
+
+Dann **Speichern** → **Ja** → Sicherheitsabfrage bestätigen. Das Schreiben dauert
+etwa 5 Minuten.
+
+> ### ⚠ Wichtig zum WLAN
+> Der Zero 2 W funkt **ausschließlich auf 2,4 GHz**. Wenn deine FRITZ!Box für
+> 2,4 und 5 GHz **denselben** WLAN-Namen verwendet (Standardeinstellung), passt
+> alles — der Pi sucht sich automatisch das 2,4-GHz-Band.
+>
+> Hast du die Bänder getrennt benannt (z. B. `MeinWLAN` und `MeinWLAN-5GHz`),
+> dann trage hier unbedingt den **2,4-GHz-Namen** ein.
+>
+> Prüfen kannst du das in der FRITZ!Box unter
+> **WLAN → Funknetz**. Steht dort bei „Name des WLAN-Funknetzes (SSID)" nur ein
+> Eintrag, ist alles in Ordnung.
+
+---
+
+## 3. Ersten Start und Anmeldung per SSH
+
+1. Karte aus dem Computer nehmen und in den Pi stecken.
+2. Netzteil an den **mittleren** Micro-USB-Anschluss (beschriftet mit `PWR`).
+   Der äußere Anschluss (`USB`) ist für Zubehör.
+3. **Zwei bis drei Minuten warten.** Beim allerersten Start richtet sich das
+   System ein und startet dabei einmal neu. Die grüne LED flackert dabei.
+
+### Pi in der FRITZ!Box finden
+
+Öffne <http://fritz.box> in deinem Browser und gehe zu
+**Heimnetz → Netzwerk**. In der Liste sollte nun `sternenflotte` auftauchen,
+mit einer IP-Adresse wie `192.168.178.42`.
+
+Taucht der Pi nach fünf Minuten nicht auf, siehe [Fehlerbehebung](#11-wartung-und-fehlerbehebung).
+
+### Per SSH verbinden
+
+Öffne auf deinem Computer ein Terminal
+(Windows: **PowerShell**; macOS/Linux: **Terminal**):
+
+```bash
+ssh pi@sternenflotte.fritz.box
+```
+
+Falls das nicht klappt, nimm die IP-Adresse aus der FRITZ!Box:
+
+```bash
+ssh pi@192.168.178.42
+```
+
+Beim ersten Mal fragt SSH, ob du dem Rechner vertraust → `yes` eingeben.
+Dann dein Passwort aus Schritt 2 eingeben (die Eingabe ist unsichtbar, das ist normal).
+
+Du bist drin, wenn die Zeile so aussieht:
+
+```
+pi@sternenflotte:~ $
+```
+
+Ab hier laufen **alle** Befehle auf dem Pi, nicht mehr auf deinem Computer.
+
+---
+
+## 4. Feste IP-Adresse in der FRITZ!Box
+
+Damit der Pi immer dieselbe Adresse behält, vergibt die FRITZ!Box sie dauerhaft:
+
+1. <http://fritz.box> → **Heimnetz → Netzwerk**
+2. In der Zeile `sternenflotte` rechts auf den **Stift** (Bearbeiten) klicken
+3. Häkchen setzen bei:
+   **„Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen"**
+4. **OK**
+
+Notiere dir die Adresse — du brauchst sie in Schritt 9.
+
+---
+
+## 5. Grundeinrichtung des Systems
+
+### System aktualisieren
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+```
+
+Das dauert auf dem Zero 2 W **10 bis 20 Minuten**. Gute Gelegenheit für einen Kaffee.
+Danach neu starten:
+
+```bash
+sudo reboot
+```
+
+Warte eine Minute, dann verbinde dich erneut per SSH.
+
+### Werkzeuge nachinstallieren
+
+```bash
+sudo apt install -y git sqlite3
+```
+
+### Auslagerungsspeicher vergrößern (Vorsichtsmaßnahme)
+
+512 MB Arbeitsspeicher reichen für den Spielserver locker aus — er belegt nur
+etwa 84 MB. Beim Installieren kann es aber kurzzeitig eng werden. Wir erhöhen
+den Auslagerungsspeicher von 100 auf 512 MB:
+
+```bash
+sudo dphys-swapfile swapoff
+sudo sed -i 's/^CONF_SWAPSIZE=.*/CONF_SWAPSIZE=512/' /etc/dphys-swapfile
+sudo dphys-swapfile setup
+sudo dphys-swapfile swapon
+```
+
+Prüfen:
+
+```bash
+free -h
+```
+
+In der Zeile `Swap` sollten nun etwa 512 MB stehen.
+
+---
+
+## 6. Node.js installieren
+
+Das Node.js-Paket in Raspberry Pi OS ist zu alt für dieses Spiel (benötigt wird
+Version 20 oder neuer). Wir installieren daher die offizielle Binärdatei von
+nodejs.org — sie enthält fertige ARM-Versionen.
+
+### Architektur prüfen
+
+```bash
+uname -m
+```
+
+* `aarch64` → 64-Bit-System, weiter mit **arm64** (der Normalfall)
+* `armv7l` → 32-Bit-System, ersetze unten `arm64` durch `armv7l`
+
+### Installieren
+
+```bash
+NODE_VERSION=v22.23.2
+ARCH=arm64
+
+cd /tmp
+wget https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-$ARCH.tar.xz
+
+sudo tar -xJf node-$NODE_VERSION-linux-$ARCH.tar.xz -C /usr/local \
+     --strip-components=1 \
+     --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md
+
+rm node-$NODE_VERSION-linux-$ARCH.tar.xz
+```
+
+### Prüfen
+
+```bash
+node --version    # sollte v22.23.2 zeigen
+npm --version
+```
+
+> Eine neuere LTS-Version findest du auf <https://nodejs.org/en/download> —
+> trage sie oben bei `NODE_VERSION` ein. Wichtig ist nur: **Version 20 oder höher.**
+
+---
+
+## 7. Das Spiel installieren
+
+### Dateien holen
+
+```bash
+cd ~
+git clone https://github.com/Ronsager/ronsager.github.io.git star-trek-conquest
+cd star-trek-conquest
+git checkout claude/star-trek-ogame-webapp-qfbct6
+```
+
+> Liegt das Projekt woanders, ersetze die URL entsprechend. Alternativ kannst du
+> den Ordner auch per `scp` von deinem Computer übertragen.
+
+### Abhängigkeiten installieren
+
+```bash
+npm ci --omit=dev
+```
+
+Das dauert ein bis zwei Minuten. Die Datenbankbibliothek `better-sqlite3` bringt
+eine fertige ARM-Binärdatei mit, es wird **nichts kompiliert**.
+
+### Konfiguration anlegen
+
+```bash
+cp .env.example .env
+```
+
+Zuerst ein Sicherheitsgeheimnis erzeugen:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+Kopiere die ausgegebene lange Zeichenkette. Dann die Datei bearbeiten:
+
+```bash
+nano .env
+```
+
+Ändere diese drei Zeilen:
+
+```ini
+JWT_SECRET=<die eben erzeugte Zeichenkette hier einfügen>
+ADMIN_PASSWORD=DeinSicheresAdminPasswort
+TRUST_PROXY=1
+```
+
+Speichern mit `Strg`+`O`, `Enter`, dann `Strg`+`X` zum Beenden.
+
+### Optional: Datenbank auf einen USB-Stick legen
+
+Der Spielserver schreibt jede Minute in die Datenbank, auch wenn niemand spielt.
+Für die Speicherkarte ist das auf Dauer Stress. Wenn du einen USB-Stick mit
+OTG-Adapter am äußeren Anschluss hast:
+
+```bash
+lsblk                                    # Stick finden, meist /dev/sda1
+sudo mkdir -p /mnt/spieldaten
+sudo mount /dev/sda1 /mnt/spieldaten
+sudo chown pi:pi /mnt/spieldaten
+
+# Dauerhaft einbinden
+echo "UUID=$(sudo blkid -s UUID -o value /dev/sda1) /mnt/spieldaten auto defaults,nofail 0 2" | sudo tee -a /etc/fstab
+```
+
+Dann in der `.env` ergänzen:
+
+```ini
+DB_FILE=/mnt/spieldaten/universe.db
+```
+
+> **Wichtig:** Wenn du diesen Weg wählst, musst du in Schritt 8 in der Datei
+> `/etc/systemd/system/star-trek-conquest.service` die Zeile `ReadWritePaths=`
+> um den neuen Pfad erweitern:
+> ```
+> ReadWritePaths=/home/pi/star-trek-conquest/data /mnt/spieldaten
+> ```
+> Sonst darf der Dienst dort nicht schreiben und startet nicht.
+
+### Erster Testlauf
+
+```bash
+npm start
+```
+
+Es sollte erscheinen:
+
+```
+  ╔══════════════════════════════════════════════╗
+  ║   S T A R   T R E K   C O N Q U E S T        ║
+  ╚══════════════════════════════════════════════╝
+  Server läuft auf http://localhost:3000
+```
+
+Öffne nun auf deinem Computer im Browser:
+**`http://sternenflotte.fritz.box:3000`**
+(oder `http://192.168.178.42:3000`)
+
+Melde dich mit `admin` und deinem `ADMIN_PASSWORD` an. Wenn das Spiel erscheint,
+beende den Testlauf im Terminal mit `Strg`+`C`.
+
+---
+
+## 8. Als Dienst dauerhaft laufen lassen
+
+Damit das Spiel automatisch startet und nach einem Stromausfall von selbst
+zurückkommt, richten wir es als Systemdienst ein.
+
+```bash
+sudo cp ~/star-trek-conquest/deploy/raspberry-pi.service \
+        /etc/systemd/system/star-trek-conquest.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now star-trek-conquest
+```
+
+Status prüfen:
+
+```bash
+sudo systemctl status star-trek-conquest
+```
+
+Es sollte grün `active (running)` dastehen. Protokoll live mitlesen:
+
+```bash
+sudo journalctl -u star-trek-conquest -f
+```
+
+(Beenden mit `Strg`+`C` — der Dienst läuft weiter.)
+
+Die wichtigsten Befehle für später:
+
+```bash
+sudo systemctl restart star-trek-conquest   # neu starten
+sudo systemctl stop star-trek-conquest      # anhalten
+sudo systemctl start star-trek-conquest     # starten
+```
+
+Teste es: Zieh dem Pi den Strom, steck ihn wieder an, warte zwei Minuten — das
+Spiel muss von allein wieder erreichbar sein.
+
+---
+
+## 9. Aus dem Internet erreichbar machen
+
+Jetzt läuft das Spiel im Heimnetz. Damit Freunde von außen mitspielen können,
+gibt es drei Wege. **Weg A ist für die meisten der beste.**
+
+### ⚠ Zuerst prüfen: Hast du überhaupt eine öffentliche IPv4-Adresse?
+
+Viele deutsche Anschlüsse (besonders Kabel) nutzen **DS-Lite** — dabei teilst du
+dir eine IPv4-Adresse mit anderen Kunden, und **Portfreigaben funktionieren
+grundsätzlich nicht**.
+
+Prüfen in der FRITZ!Box: **Internet → Online-Monitor**. Steht dort bei
+„genutzte IP-Adresse" nur eine IPv6-Adresse, oder taucht irgendwo **„DS-Lite"**
+auf, dann ist Weg B für dich versperrt — nimm Weg A.
+
+> Weg A funktioniert **auch bei DS-Lite**, weil der Pi die Verbindung von innen
+> nach außen aufbaut. Deshalb ist er die sichere Wahl.
+
+---
+
+### Weg A: Tailscale Funnel (empfohlen — ohne Portfreigabe, ohne eigene Domain)
+
+Kostenlos für private Nutzung, liefert automatisch eine HTTPS-Adresse und braucht
+in der FRITZ!Box **keine einzige Einstellung**.
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+Der Befehl zeigt eine Internetadresse an. Öffne sie im Browser und melde dich an
+(Google-, Microsoft- oder GitHub-Konto genügt, kostenlos). Danach:
+
+```bash
+sudo tailscale funnel 3000
+```
+
+Beim ersten Mal weist Tailscale dich eventuell an, **HTTPS-Zertifikate** und
+**Funnel** in der Weboberfläche freizuschalten — folge einfach dem angezeigten Link.
+
+Anschließend bekommst du eine Adresse in dieser Form:
+
+```
+https://sternenflotte.dein-name.ts.net
+```
+
+Diese Adresse gibst du deinen Mitspielern. Fertig — inklusive HTTPS.
+
+Damit die Freigabe einen Neustart übersteht:
+
+```bash
+sudo tailscale funnel --bg 3000
+```
+
+Prüfen, was gerade freigegeben ist:
+
+```bash
+sudo tailscale funnel status
+```
+
+---
+
+### Weg B: FRITZ!Box-Portfreigabe mit MyFRITZ! (nur ohne DS-Lite)
+
+**Schritt 1 — Portfreigabe einrichten**
+
+1. <http://fritz.box> → **Internet → Freigaben → Portfreigaben**
+2. **Gerät für Freigaben hinzufügen**
+3. Gerät: `sternenflotte`
+4. **Neue Freigabe** → **Andere Anwendung**
+   * Bezeichnung: `Star Trek Conquest`
+   * Protokoll: `TCP`
+   * Port an Gerät: `3000` bis `3000`
+   * Port extern gewünscht: `3000`
+5. **OK** → **Übernehmen**
+
+**Schritt 2 — Feste Internetadresse über MyFRITZ!**
+
+Deine Heim-IP ändert sich regelmäßig. MyFRITZ! gibt dir einen gleichbleibenden Namen:
+
+1. **Internet → MyFRITZ!-Konto**
+2. E-Mail-Adresse eintragen, Bestätigungsmail anklicken
+3. Du erhältst eine Adresse wie `abc123xyz.myfritz.net`
+
+Deine Mitspieler verbinden sich dann über:
+
+```
+http://abc123xyz.myfritz.net:3000
+```
+
+> **Achtung:** Das ist **`http`**, nicht `https` — die Verbindung ist
+> **unverschlüsselt**. Passwörter gehen im Klartext durchs Netz. Nutze diesen Weg
+> nur im engsten Freundeskreis und verwende auf keinen Fall ein Passwort, das du
+> anderswo schon benutzt. Für echtes HTTPS brauchst du eine eigene Domain und ein
+> Zertifikat — dann ist Weg A einfacher.
+
+---
+
+### Weg C: Cloudflare Tunnel (wenn du bereits eine eigene Domain hast)
+
+Funktioniert wie Weg A ohne Portfreigabe, setzt aber eine Domain voraus, die bei
+Cloudflare verwaltet wird. Zum schnellen Ausprobieren ohne Domain:
+
+```bash
+cloudflared tunnel --url http://localhost:3000
+```
+
+Das liefert sofort eine zufällige HTTPS-Adresse — praktisch zum Testen, aber sie
+ändert sich bei jedem Neustart und eignet sich nicht für den Dauerbetrieb.
+
+---
+
+### Nach dem Livegang
+
+Sobald alle Mitspieler registriert sind, schließe die Registrierung:
+Im Spiel → **Adminbereich → Server** → Haken bei *„Registrierung geöffnet"* entfernen.
+
+---
+
+## 10. Datensicherung einrichten
+
+Speicherkarten fallen irgendwann aus. Mit einer täglichen Sicherung ist das
+ärgerlich statt katastrophal.
+
+```bash
+mkdir -p ~/sicherungen
+crontab -e
+```
+
+Beim ersten Mal fragt der Editor nach — wähle `1` (nano). Ganz unten anfügen:
+
+```
+0 4 * * * /home/pi/star-trek-conquest/deploy/backup.sh /home/pi/sicherungen
+```
+
+Speichern mit `Strg`+`O`, `Enter`, `Strg`+`X`.
+
+Jede Nacht um 4 Uhr wird nun eine Sicherung erstellt; Sicherungen älter als
+14 Tage werden automatisch gelöscht. Einmal von Hand testen:
+
+```bash
+~/star-trek-conquest/deploy/backup.sh ~/sicherungen
+ls -lh ~/sicherungen
+```
+
+> **Noch besser:** Kopiere die Sicherungen regelmäßig auf deinen Computer, damit
+> sie nicht mit der Speicherkarte zusammen verloren gehen:
+> ```bash
+> # Auf deinem Computer ausführen:
+> scp pi@sternenflotte.fritz.box:~/sicherungen/*.gz ~/Downloads/
+> ```
+
+---
+
+## 11. Wartung und Fehlerbehebung
+
+### Der Pi taucht nicht in der FRITZ!Box auf
+
+Fast immer liegt es am WLAN:
+
+* **5-GHz-Netz eingetragen?** Der Zero 2 W kann nur 2,4 GHz (siehe Schritt 2)
+* **Tippfehler** bei WLAN-Name oder -Passwort? Beides ist
+  Groß-/Kleinschreibungs-empfindlich
+* **WLAN-Land** im Imager auf `DE` gesetzt? Ohne Ländereinstellung bleibt das
+  Funkmodul stumm
+* **Netzteil zu schwach?** Bei Unterversorgung startet der Pi in einer Endlosschleife neu
+
+Im Zweifel: Karte neu beschreiben und in Schritt 2 alles noch einmal sorgfältig
+eintragen. Das geht schneller als die Fehlersuche.
+
+### Das Spiel ist nicht erreichbar
+
+```bash
+sudo systemctl status star-trek-conquest    # läuft der Dienst?
+sudo journalctl -u star-trek-conquest -n 50 # letzte 50 Protokollzeilen
+curl http://localhost:3000/api/health       # antwortet der Server lokal?
+```
+
+### Speicherplatz und Auslastung prüfen
+
+```bash
+df -h /              # freier Platz auf der Karte
+free -h              # Arbeitsspeicher
+uptime               # Systemlast
+```
+
+### Auf eine neue Version aktualisieren
+
+```bash
+cd ~/star-trek-conquest
+~/star-trek-conquest/deploy/backup.sh ~/sicherungen   # vorher sichern!
+git pull
+npm ci --omit=dev
+sudo systemctl restart star-trek-conquest
+```
+
+Die Datenbank bleibt dabei erhalten — sie liegt in `data/` und wird von Git
+nicht angefasst.
+
+### Administratorzugang verloren
+
+```bash
+cd ~/star-trek-conquest
+sqlite3 data/universe.db "UPDATE users SET role='admin' WHERE username='DeinName';"
+```
+
+### Pi sauber herunterfahren
+
+**Nie einfach den Stecker ziehen** — das beschädigt auf Dauer die Speicherkarte:
+
+```bash
+sudo shutdown -h now
+```
+
+Warte, bis die grüne LED dauerhaft aus ist, dann erst den Strom trennen.
+
+---
+
+## Was dich erwartet
+
+Auf dem Zero 2 W ist der Spielserver bequem für **10 bis 20 gleichzeitige
+Mitspieler** ausgelegt. Gemessene Werte: 84 MB Arbeitsspeicher, und die
+aufwendigste Hintergrundaufgabe braucht 0,32 Millisekunden pro Spieler und läuft
+einmal pro Minute. Der Pi wird sich langweilen.
+
+Der Stromverbrauch liegt bei etwa 1 Watt im Leerlauf — das sind rund
+**2,50 Euro Stromkosten im Jahr** für einen durchlaufenden Spielserver.
+
+Viel Erfolg, Kommandant. 🖖
