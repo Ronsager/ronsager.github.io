@@ -195,11 +195,24 @@ Warte eine Minute, dann verbinde dich erneut per SSH.
 sudo apt install -y git sqlite3
 ```
 
-### Auslagerungsspeicher vergrößern (Vorsichtsmaßnahme)
+### Auslagerungsspeicher vergrößern — optional, kann übersprungen werden
 
-512 MB Arbeitsspeicher reichen für den Spielserver locker aus — er belegt nur
-etwa 84 MB. Beim Installieren kann es aber kurzzeitig eng werden. Wir erhöhen
-den Auslagerungsspeicher von 100 auf 512 MB:
+512 MB Arbeitsspeicher reichen für den Spielserver locker aus: Er belegt im
+Betrieb nur etwa 84 MB, und bei der Installation wird nichts kompiliert, weil
+fertige ARM-Pakete geladen werden.
+
+**Wenn du es eilig hast, überspring diesen Abschnitt und mach mit Schritt 6
+weiter.** Wer etwas Reserve möchte, schaut zuerst nach, was das System überhaupt
+mitbringt:
+
+```bash
+free -h
+swapon --show
+```
+
+Je nach Ausgabe von `swapon --show` geht es unterschiedlich weiter:
+
+**Fall 1 — es erscheint `/var/swap`** (klassisches Raspberry Pi OS):
 
 ```bash
 sudo dphys-swapfile swapoff
@@ -208,13 +221,27 @@ sudo dphys-swapfile setup
 sudo dphys-swapfile swapon
 ```
 
-Prüfen:
+**Fall 2 — es erscheint `/dev/zram0`:**
+Dein System nutzt bereits komprimierten Arbeitsspeicher. Das ist für unseren
+Zweck völlig ausreichend — **hier ist nichts zu tun.**
+
+**Fall 3 — die Ausgabe ist leer, oder du bekommst
+`sudo: dphys-swapfile: command not found`:**
+Das Werkzeug ist auf deinem Abbild nicht vorinstalliert. Entweder du lässt es
+einfach dabei bewenden (der Server läuft auch ganz ohne Auslagerung), oder du
+installierst es nach:
+
+```bash
+sudo apt install -y dphys-swapfile
+```
+
+Danach funktionieren die Befehle aus Fall 1.
+
+Zum Schluss prüfen — in der Zeile `Swap` sollten nun etwa 512 MB stehen:
 
 ```bash
 free -h
 ```
-
-In der Zeile `Swap` sollten nun etwa 512 MB stehen.
 
 ---
 
