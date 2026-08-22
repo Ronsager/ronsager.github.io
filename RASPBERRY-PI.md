@@ -365,13 +365,6 @@ Dann in der `.env` ergänzen:
 DB_FILE=/mnt/spieldaten/universe.db
 ```
 
-> **Wichtig:** Wenn du diesen Weg wählst, musst du in Schritt 8 in der Datei
-> `/etc/systemd/system/star-trek-conquest.service` die Zeile `ReadWritePaths=`
-> um den neuen Pfad erweitern:
-> ```
-> ReadWritePaths=/home/pi/star-trek-conquest/data /mnt/spieldaten
-> ```
-> Sonst darf der Dienst dort nicht schreiben und startet nicht.
 
 ### Erster Testlauf
 
@@ -627,6 +620,36 @@ Fast immer liegt es am WLAN:
 
 Im Zweifel: Karte neu beschreiben und in Schritt 2 alles noch einmal sorgfältig
 eintragen. Das geht schneller als die Fehlersuche.
+
+### `Job for star-trek-conquest.service failed because of unavailable resources`
+
+Diese Meldung kommt von systemd, nicht vom Spiel: Der Dienst durfte seinen
+Namensraum nicht einrichten. In älteren Fassungen dieses Projekts stand in der
+Dienst-Datei `ProtectSystem=strict` zusammen mit einer `ReadWritePaths=`-Zeile,
+die auf `…/star-trek-conquest/data` zeigte. Dieses Verzeichnis entsteht aber erst
+beim ersten Serverstart — nach einem frischen Klon existiert es noch nicht, und
+systemd bricht ab.
+
+Behoben. So holst du die Korrektur:
+
+```bash
+cd ~/star-trek-conquest
+git pull
+sudo cp deploy/raspberry-pi.service /etc/systemd/system/star-trek-conquest.service
+sudo systemctl daemon-reload
+sudo systemctl restart star-trek-conquest
+sudo systemctl status star-trek-conquest
+```
+
+Der entscheidende Schritt ist das erneute **Kopieren der Dienst-Datei** — `git pull`
+allein ändert nichts an der bereits nach `/etc/systemd/system/` kopierten Fassung.
+
+Als Sofortabhilfe ohne Update genügt es auch, das fehlende Verzeichnis anzulegen:
+
+```bash
+mkdir -p ~/star-trek-conquest/data
+sudo systemctl restart star-trek-conquest
+```
 
 ### Die Seite sieht kaputt aus / die Anmeldung reagiert nicht
 

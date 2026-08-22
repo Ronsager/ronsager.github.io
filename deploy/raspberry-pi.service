@@ -30,15 +30,16 @@ RestartSec=10
 TimeoutStartSec=90
 
 # Absicherung
+# ProtectSystem=full schützt /usr, /boot und /etc vor Schreibzugriffen und
+# lässt /home beschreibbar. Die schärfere Stufe "strict" wurde bewusst nicht
+# gewählt: Sie verlangt eine ReadWritePaths-Liste, und ein dort genannter,
+# noch nicht existierender Pfad (data/ entsteht erst beim ersten Start) lässt
+# systemd den Dienst mit "unavailable resources" abbrechen. Ausgelagerte
+# Datenbanken auf USB-Sticks funktionieren so ebenfalls ohne Zusatzeintrag.
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
+ProtectSystem=full
 ProtectHome=false
-# Nur dieses Verzeichnis darf beschrieben werden (dort liegt die Datenbank).
-# Liegt die Datenbank auf einem USB-Stick (DB_FILE in der .env geändert),
-# muss der Pfad hier ergänzt werden, sonst startet der Dienst nicht:
-#   ReadWritePaths=/home/pi/star-trek-conquest/data /mnt/spieldaten
-ReadWritePaths=/home/pi/star-trek-conquest/data
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true

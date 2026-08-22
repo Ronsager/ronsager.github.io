@@ -21,11 +21,14 @@ Restart=always
 RestartSec=5
 
 # Absicherung
+# Zu ProtectSystem: "full" schützt /usr, /boot und /etc. Die Stufe "strict"
+# verlangt eine ReadWritePaths-Liste; ein darin genannter, noch nicht
+# existierender Pfad bricht den Start mit "unavailable resources" ab.
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/star-trek-conquest/data
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths=-/opt/star-trek-conquest/data
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
