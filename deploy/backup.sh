@@ -5,7 +5,7 @@
 #
 # Der Aufruf funktioniert aus jedem Arbeitsverzeichnis – das Skript ermittelt
 # den Projektpfad aus seinem eigenen Ort. Für tägliche Sicherungen per crontab:
-#   0 4 * * * /home/pi/star-trek-conquest/deploy/backup.sh /home/pi/sicherungen
+#   0 4 * * * $HOME/star-trek-conquest/deploy/backup.sh $HOME/sicherungen
 
 set -euo pipefail
 

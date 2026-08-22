@@ -1,4 +1,13 @@
-# systemd-Dienst für den Raspberry Pi (Benutzer "pi", Projekt in /home/pi).
+# VORLAGE mit Beispielpfaden (Benutzer "pi", Projekt in /home/pi).
+#
+# Diese Datei nur verwenden, wenn du die Pfade von Hand anpassen willst.
+# Empfohlen ist stattdessen:
+#
+#   sudo ./deploy/install-service.sh
+#
+# Das Skript liest Benutzername, Projektpfad und Node-Pfad vom laufenden
+# System aus und erzeugt die Dienst-Datei daraus – dadurch entfallen genau
+# die festen Pfade, die hier stehen.
 #
 # Installation:
 #   sudo cp ~/star-trek-conquest/deploy/raspberry-pi.service \

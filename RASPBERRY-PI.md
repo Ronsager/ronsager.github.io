@@ -85,7 +85,7 @@ noch Tastatur hast.
 | Feld | Eintrag |
 |---|---|
 | Hostname | `sternenflotte` (frei wählbar, du erreichst den Pi später darüber) |
-| Benutzername | `pi` |
+| Benutzername | frei wählbar, z. B. `pi` — **notieren!** Du brauchst ihn gleich zum Anmelden |
 | Passwort | Ein sicheres Passwort — **notieren!** |
 | WLAN-SSID | Der Name deines WLANs |
 | WLAN-Passwort | Dein WLAN-Schlüssel |
@@ -136,13 +136,13 @@ Taucht der Pi nach fünf Minuten nicht auf, siehe [Fehlerbehebung](#11-wartung-u
 (Windows: **PowerShell**; macOS/Linux: **Terminal**):
 
 ```bash
-ssh pi@sternenflotte.fritz.box
+ssh DEIN-BENUTZERNAME@sternenflotte.fritz.box
 ```
 
 Falls das nicht klappt, nimm die IP-Adresse aus der FRITZ!Box:
 
 ```bash
-ssh pi@192.168.178.42
+ssh DEIN-BENUTZERNAME@192.168.178.42
 ```
 
 Beim ersten Mal fragt SSH, ob du dem Rechner vertraust → `yes` eingeben.
@@ -151,7 +151,7 @@ Dann dein Passwort aus Schritt 2 eingeben (die Eingabe ist unsichtbar, das ist n
 Du bist drin, wenn die Zeile so aussieht:
 
 ```
-pi@sternenflotte:~ $
+ronsager@sternenflotte:~ $
 ```
 
 Ab hier laufen **alle** Befehle auf dem Pi, nicht mehr auf deinem Computer.
@@ -593,7 +593,7 @@ crontab -e
 Beim ersten Mal fragt der Editor nach — wähle `1` (nano). Ganz unten anfügen:
 
 ```
-0 4 * * * /home/pi/star-trek-conquest/deploy/backup.sh /home/pi/sicherungen
+0 4 * * * $HOME/star-trek-conquest/deploy/backup.sh $HOME/sicherungen
 ```
 
 Speichern mit `Strg`+`O`, `Enter`, `Strg`+`X`.
@@ -610,7 +610,7 @@ ls -lh ~/sicherungen
 > sie nicht mit der Speicherkarte zusammen verloren gehen:
 > ```bash
 > # Auf deinem Computer ausführen:
-> scp pi@sternenflotte.fritz.box:~/sicherungen/*.gz ~/Downloads/
+> scp DEIN-BENUTZERNAME@sternenflotte.fritz.box:~/sicherungen/*.gz ~/Downloads/
 > ```
 
 ---
