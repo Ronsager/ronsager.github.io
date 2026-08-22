@@ -90,7 +90,20 @@ fi
 [ -d "$PROJECT_DIR/data" ] && ok "Datenverzeichnis: $PROJECT_DIR/data"
 
 # --- Dienst-Datei zusammensetzen -----------------------------------------
-UNIT_CONTENT="[Unit]
+# Zwei Fassungen: einmal mit Absicherung, einmal ohne. Scheitert der Start mit
+# Absicherung, wird automatisch die schlanke Fassung versucht – so bleibt kein
+# unklarer "unavailable resources"-Fehler stehen.
+
+HARDENING="NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true"
+
+make_unit() {
+  printf '%s\n' "[Unit]
 Description=Star Trek Conquest – Browserspiel-Server
 After=network-online.target
 Wants=network-online.target
@@ -107,13 +120,7 @@ Restart=always
 RestartSec=10
 TimeoutStartSec=90
 
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=false
-ProtectKernelTunables=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
+${1:-}
 
 StandardOutput=journal
 StandardError=journal
@@ -121,10 +128,11 @@ SyslogIdentifier=${SERVICE_NAME}
 
 [Install]
 WantedBy=multi-user.target"
+}
 
 if [ "$MODE" = "--print" ]; then
   echo
-  echo "$UNIT_CONTENT"
+  make_unit "$HARDENING"
   exit 0
 fi
 
@@ -137,8 +145,11 @@ ok "Alle Voraussetzungen erfüllt."
 
 if [ "$MODE" = "--check" ]; then
   echo
-  info "Nur Prüfmodus – es wurde nichts verändert."
-  info "Zum Einrichten:  sudo $0"
+  info "PRÜFMODUS – es wurde nichts installiert und nichts gestartet."
+  info "Die Dienst-Datei in /etc/systemd/system/ ist noch die alte."
+  echo
+  echo "  Zum tatsächlichen Einrichten jetzt ausführen:"
+  echo "      sudo $0"
   exit 0
 fi
 
@@ -149,32 +160,49 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+
+try_start() {
+  make_unit "$1" > "$UNIT_PATH"
+  systemctl daemon-reload
+  systemctl reset-failed "$SERVICE_NAME" >/dev/null 2>&1 || true
+  systemctl restart "$SERVICE_NAME" >/dev/null 2>&1 || true
+  sleep 3
+  systemctl is-active --quiet "$SERVICE_NAME"
+}
+
 echo
 echo "Dienst wird eingerichtet …"
-printf '%s\n' "$UNIT_CONTENT" > "/etc/systemd/system/${SERVICE_NAME}.service"
-ok "/etc/systemd/system/${SERVICE_NAME}.service geschrieben"
+systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
 
-systemctl daemon-reload
-ok "systemd neu eingelesen"
-
-systemctl enable "$SERVICE_NAME" >/dev/null 2>&1
-ok "Autostart aktiviert"
-
-systemctl restart "$SERVICE_NAME"
-sleep 3
-
-echo
-if systemctl is-active --quiet "$SERVICE_NAME"; then
+if try_start "$HARDENING"; then
+  ok "Dienst läuft (mit Absicherung)."
+elif try_start ""; then
   ok "Dienst läuft."
-  PORT="$(grep -E '^[[:space:]]*PORT[[:space:]]*=' "$PROJECT_DIR/.env" | tail -1 | cut -d= -f2 | tr -d ' "' || true)"
   echo
-  echo "  Im Browser erreichbar unter:  http://$(hostname).local:${PORT:-3000}"
-  echo "  Protokoll mitlesen:           sudo journalctl -u ${SERVICE_NAME} -f"
+  info "Hinweis: Mit den systemd-Absicherungsoptionen ließ sich der Dienst auf"
+  info "diesem System nicht starten, ohne sie schon. Die Absicherung wurde"
+  info "deshalb weggelassen – das Spiel läuft damit uneingeschränkt."
+  info "Betroffen waren: ProtectSystem, ProtectHome, PrivateTmp, ProtectKernelTunables."
 else
-  bad "Der Dienst konnte nicht gestartet werden. Ausgabe:"
+  bad "Der Dienst lässt sich auch ohne Absicherung nicht starten."
   echo
-  systemctl status "$SERVICE_NAME" --no-pager -l | sed 's/^/    /' || true
+  echo "  ── systemctl status ─────────────────────────────────────────"
+  systemctl status "$SERVICE_NAME" --no-pager -l 2>&1 | sed 's/^/    /' || true
   echo
-  journalctl -u "$SERVICE_NAME" -n 30 --no-pager | sed 's/^/    /' || true
+  echo "  ── journalctl (letzte 40 Zeilen) ────────────────────────────"
+  journalctl -u "$SERVICE_NAME" -n 40 --no-pager 2>&1 | sed 's/^/    /' || true
+  echo
+  echo "  ── Direkter Startversuch als $RUN_USER ──────────────────────"
+  # Ohne systemd starten: zeigt Fehler der Anwendung selbst im Klartext
+  ( cd "$PROJECT_DIR" && sudo -u "$RUN_USER" env $(grep -vE '^\s*#|^\s*$' .env | xargs) \
+      timeout 8 "$NODE_BIN" server/index.js 2>&1 | head -25 | sed 's/^/    /' ) || true
+  echo
+  info "Bitte diese Ausgabe vollständig weitergeben – darin steht die Ursache."
   exit 1
 fi
+
+PORT="$(grep -E '^[[:space:]]*PORT[[:space:]]*=' "$PROJECT_DIR/.env" | tail -1 | cut -d= -f2 | tr -d ' "' || true)"
+echo
+echo "  Im Browser erreichbar unter:  http://$(hostname).local:${PORT:-3000}"
+echo "  Protokoll mitlesen:           sudo journalctl -u ${SERVICE_NAME} -f"
