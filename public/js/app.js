@@ -301,7 +301,14 @@ export async function renderView() {
     location.hash = 'overview';
     return;
   }
-  const container = document.getElementById('view');
+  // Den Container gegen eine frische Kopie tauschen, bevor die Ansicht neu
+  // aufgebaut wird. Die Ansichten hängen ihre Klick-Behandlung an dieses
+  // Element; ohne den Austausch bliebe die Behandlung jedes früheren Aufrufs
+  // bestehen und ein einzelner Klick löste mehrfach aus – beim Bauen wären
+  // dann mehrere Stufen statt einer in Auftrag gegangen.
+  const stale = document.getElementById('view');
+  const container = stale.cloneNode(false);
+  stale.replaceWith(container);
   container.innerHTML = '<div class="loader">Daten werden abgerufen</div>';
   try {
     await def.module.render(container, { state, refresh, renderView, api });

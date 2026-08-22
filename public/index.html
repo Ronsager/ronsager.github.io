@@ -63,20 +63,52 @@
 
 <!-- ══════════ Spiel ══════════ -->
 <div class="app" id="app">
-  <header class="topbar">
-    <span class="brand">Star Trek Conquest</span>
-    <span class="small" id="header-player"></span>
-    <span class="spacer"></span>
-    <span class="small muted mono" id="server-time"></span>
-    <button class="secondary small" id="btn-logout">Abmelden</button>
+  <!-- ══ LCARS-Rahmen: Kopfzeile mit Winkelelement ══ -->
+  <header class="lcars-head">
+    <div class="lcars-elbow-tl"></div>
+    <div class="lcars-head-bar">
+      <span class="lcars-cap-l"></span>
+      <span class="lcars-title">Star Trek Conquest</span>
+      <span class="lcars-block c-lilac"></span>
+      <span class="lcars-block c-blue"></span>
+      <span class="lcars-headinfo" id="header-player"></span>
+      <span class="lcars-fill"></span>
+      <span class="lcars-stardate mono" id="server-time"></span>
+      <button class="lcars-btn c-salmon" id="btn-logout">Abmelden</button>
+      <span class="lcars-cap-r"></span>
+    </div>
   </header>
 
-  <div class="resource-bar" id="resource-bar"></div>
+  <div class="lcars-body">
+    <!-- ══ Linke LCARS-Säule: Navigation ══ -->
+    <nav class="lcars-column">
+      <div class="lcars-column-inner" id="sidebar"></div>
+      <div class="lcars-column-foot">
+        <span class="lcars-seg c-tan"></span>
+        <span class="lcars-seg c-lilac"></span>
+        <span class="lcars-seg c-orange"></span>
+      </div>
+    </nav>
 
-  <div class="layout">
-    <nav class="sidebar" id="sidebar"></nav>
-    <main id="view"><div class="loader">Sensoren kalibrieren</div></main>
+    <!-- ══ Hauptbereich ══ -->
+    <div class="lcars-main">
+      <div class="resource-bar" id="resource-bar"></div>
+      <main id="view"><div class="loader">Sensoren kalibrieren</div></main>
+    </div>
   </div>
+
+  <!-- ══ Fußleiste mit unterem Winkelelement ══ -->
+  <footer class="lcars-foot">
+    <div class="lcars-elbow-bl"></div>
+    <div class="lcars-foot-bar">
+      <span class="lcars-cap-l"></span>
+      <span class="lcars-block c-tan"></span>
+      <span class="lcars-block c-lilac"></span>
+      <span class="lcars-fill"></span>
+      <span class="lcars-code mono">LCARS 47-2213-A · SFC</span>
+      <span class="lcars-cap-r"></span>
+    </div>
+  </footer>
 </div>
 
 <div id="toasts"></div>

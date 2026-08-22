@@ -80,7 +80,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use(express.static(path.join(ROOT, 'public'), { maxAge: '1h', index: 'index.html' }));
+// Der Browser fragt bei jedem Aufruf kurz beim Server nach, ob sich eine Datei
+// geändert hat. Unveränderte Dateien beantwortet der Server mit "304 Not Modified"
+// – das kostet ein paar Byte und der Browser nutzt weiter seine Kopie.
+// Eine feste Vorhaltezeit ist hier falsch: Nach einem Update zeigte der Browser
+// sonst bis zu einer Stunde lang die alte Fassung, ohne nachzufragen.
+app.use(
+  express.static(path.join(ROOT, 'public'), {
+    index: 'index.html',
+    etag: true,
+    lastModified: true,
+    maxAge: 0,
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+  })
+);
 
 // Alle übrigen Pfade an die Single-Page-App weiterreichen
 app.get(/^\/(?!api\/).*/, (req, res) => {
