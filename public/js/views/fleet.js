@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { fmt, fmtDuration, fmtCoords, esc, toast, countdown } from '../util.js';
+import { icon } from '../icons.js';
 
 const MISSION_OPTIONS = [
   ['attack', 'Angriff'], ['transport', 'Transport'], ['deploy', 'Stationieren'],
@@ -22,7 +23,7 @@ export async function render(container, ctx) {
   const shipRows = shipData.ships.length
     ? shipData.ships.map((s) => `
         <tr>
-          <td>${esc(s.name)}</td>
+          <td><span class="row-icon">${icon('ship', s.key)}</span>${esc(s.name)}</td>
           <td class="right mono">${fmt(s.count)}</td>
           <td class="right mono tiny muted">${fmt(s.cargo)}</td>
           <td style="width:130px">

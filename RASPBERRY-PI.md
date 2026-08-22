@@ -396,12 +396,22 @@ Damit das Spiel automatisch startet und nach einem Stromausfall von selbst
 zurückkommt, richten wir es als Systemdienst ein.
 
 ```bash
-sudo cp ~/star-trek-conquest/deploy/raspberry-pi.service \
-        /etc/systemd/system/star-trek-conquest.service
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now star-trek-conquest
+cd ~/star-trek-conquest
+sudo ./deploy/install-service.sh
 ```
+
+Das Skript liest Benutzername, Projektpfad und Node-Pfad von deinem System aus,
+erzeugt daraus die Dienst-Datei, aktiviert den Autostart und startet den Dienst.
+Feste Pfade, die auf deinem Pi womöglich anders lauten, gibt es dadurch nicht mehr.
+
+Nur prüfen, ohne etwas zu ändern:
+
+```bash
+./deploy/install-service.sh --check
+```
+
+Das meldet einzeln, was fehlt — etwa eine nicht angelegte `.env`, ein zu altes
+Node oder fehlende Abhängigkeiten.
 
 Status prüfen:
 
@@ -630,25 +640,24 @@ die auf `…/star-trek-conquest/data` zeigte. Dieses Verzeichnis entsteht aber e
 beim ersten Serverstart — nach einem frischen Klon existiert es noch nicht, und
 systemd bricht ab.
 
-Behoben. So holst du die Korrektur:
+Ebenso scheitert der Start, wenn die fest eingetragenen Pfade nicht zu deinem
+System passen — etwa weil dein Benutzer nicht `pi` heißt, das Projekt woanders
+liegt oder Node nicht unter `/usr/local/bin/node` installiert ist.
+
+Beides löst das Einrichtungsskript, das die tatsächlichen Pfade ausliest:
 
 ```bash
 cd ~/star-trek-conquest
 git pull
-sudo cp deploy/raspberry-pi.service /etc/systemd/system/star-trek-conquest.service
-sudo systemctl daemon-reload
-sudo systemctl restart star-trek-conquest
-sudo systemctl status star-trek-conquest
+sudo ./deploy/install-service.sh
 ```
 
-Der entscheidende Schritt ist das erneute **Kopieren der Dienst-Datei** — `git pull`
-allein ändert nichts an der bereits nach `/etc/systemd/system/` kopierten Fassung.
-
-Als Sofortabhilfe ohne Update genügt es auch, das fehlende Verzeichnis anzulegen:
+Zeigt es weiterhin Probleme, hilft die Einzelprüfung:
 
 ```bash
-mkdir -p ~/star-trek-conquest/data
-sudo systemctl restart star-trek-conquest
+./deploy/install-service.sh --check       # was fehlt konkret?
+./deploy/install-service.sh --print       # welche Dienst-Datei entsteht?
+journalctl -xeu star-trek-conquest -n 40  # was sagt systemd genau?
 ```
 
 ### Die Seite sieht kaputt aus / die Anmeldung reagiert nicht

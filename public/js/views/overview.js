@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { fmt, fmtShort, fmtDuration, fmtCoords, esc, toast, countdown } from '../util.js';
+import { icon, planetDisc } from '../icons.js';
 
 export async function render(container, ctx) {
   const { state, refresh } = ctx;
@@ -64,6 +65,9 @@ export async function render(container, ctx) {
     <div class="grid cols-2">
       <div class="panel accent-orange">
         <h2>Planetendaten</h2>
+        <div class="planet-hero">
+          ${planetDisc(p.type, `${p.coords.q}:${p.coords.s}:${p.coords.p}`, 128)}
+          <div class="planet-facts">
         <table>
           <tr><td class="muted">Klassifikation</td><td>${esc(typeName)}</td></tr>
           <tr><td class="muted">Durchmesser</td><td class="mono">${fmt(p.diameter)} km</td></tr>
@@ -76,6 +80,8 @@ export async function render(container, ctx) {
           <tr><td class="muted">Kolonien</td><td class="mono">${d.limits.planets.used} / ${d.limits.planets.max}</td></tr>
           <tr><td class="muted">Flottenverbände</td><td class="mono">${fleetData.slots.used} / ${fleetData.slots.max}</td></tr>
         </table>
+          </div>
+        </div>
       </div>
 
       <div class="panel accent-blue">
@@ -89,7 +95,7 @@ export async function render(container, ctx) {
         <h2>Flotte im Orbit</h2>
         ${shipsList.length
           ? `<div class="table-wrap"><table>${shipsList.map(([k, n]) =>
-              `<tr><td>${esc(ref.ships[k]?.name || k)}</td><td class="right mono">${fmt(n)}</td></tr>`).join('')}</table></div>`
+              `<tr><td><span class="row-icon">${icon('ship', k)}</span>${esc(ref.ships[k]?.name || k)}</td><td class="right mono">${fmt(n)}</td></tr>`).join('')}</table></div>`
           : '<p class="muted small">Keine Schiffe stationiert.</p>'}
       </div>
 
@@ -97,7 +103,7 @@ export async function render(container, ctx) {
         <h2>Verteidigungsanlagen</h2>
         ${defList.length
           ? `<div class="table-wrap"><table>${defList.map(([k, n]) =>
-              `<tr><td>${esc(ref.defenses[k]?.name || k)}</td><td class="right mono">${fmt(n)}</td></tr>`).join('')}</table></div>`
+              `<tr><td><span class="row-icon">${icon('defense', k)}</span>${esc(ref.defenses[k]?.name || k)}</td><td class="right mono">${fmt(n)}</td></tr>`).join('')}</table></div>`
           : '<p class="muted small">Der Planet ist ungeschützt.</p>'}
       </div>
     </div>
@@ -109,7 +115,7 @@ export async function render(container, ctx) {
             <th class="right">Duranium</th><th class="right">Dilithium</th><th class="right">Deuterium</th></tr>
         ${d.planets.map((pl) => `
           <tr class="${pl.id === p.id ? 'me' : ''}">
-            <td><a href="#overview" data-planet="${pl.id}">${esc(pl.name)}</a>
+            <td><span class="planet-mini">${planetDisc(pl.type, `${pl.coords.q}:${pl.coords.s}:${pl.coords.p}`, 30)}</span><a href="#overview" data-planet="${pl.id}">${esc(pl.name)}</a>
               ${pl.isHomeworld ? '<span class="tag">Heimat</span>' : ''}</td>
             <td class="mono">${fmtCoords(pl.coords)}</td>
             <td class="mono">${pl.fields.used}/${pl.fields.max}</td>

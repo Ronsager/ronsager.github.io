@@ -350,3 +350,62 @@ tr.own td { color: var(--green); }
   .res { min-width: 96px; }
   body { font-size: 14px; }
 }
+
+/* ---------------- Symbole und Planetengrafiken ---------------- */
+
+.icon {
+  width: 1em; height: 1em;
+  display: block; flex-shrink: 0;
+  color: inherit;
+  overflow: visible;
+}
+
+/* Symbol in den Technologiekarten */
+.card-icon {
+  width: 54px; height: 54px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-input);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: var(--orange);
+}
+.card-icon .icon { width: 42px; height: 42px; }
+.card.available .card-icon { color: var(--sand); border-color: var(--orange-dim); }
+.card.locked .card-icon { color: var(--muted); }
+.card.building-active .card-icon { color: var(--sand); border-color: var(--sand); }
+.card .card-head { align-items: center; }
+.card .card-head .card-title { flex: 1; }
+
+/* Symbol in Tabellenzeilen */
+.row-icon {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle; margin-right: 7px;
+  color: var(--orange);
+}
+.row-icon .icon { width: 26px; height: 26px; }
+td .row-icon { color: var(--sand); }
+
+/* Planetenscheibe */
+.planet-disc { display: block; }
+.planet-hero {
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+}
+.planet-hero .planet-disc {
+  filter: drop-shadow(0 0 14px rgba(255, 156, 0, 0.18));
+}
+.planet-hero .planet-facts { flex: 1; min-width: 200px; }
+
+/* Kleine Scheibe in Listen */
+.planet-mini { width: 30px; height: 30px; vertical-align: middle; margin-right: 8px; display: inline-block; }
+.planet-mini .planet-disc { width: 30px; height: 30px; }
+
+/* LCARS-Zierelement: Winkel oben links an Panels */
+.panel.lcars-elbow { position: relative; padding-top: 22px; }
+.panel.lcars-elbow::before {
+  content: ''; position: absolute; top: 0; left: 0;
+  width: 86px; height: 12px;
+  background: var(--orange);
+  border-radius: 0 var(--pill) var(--pill) 0;
+}

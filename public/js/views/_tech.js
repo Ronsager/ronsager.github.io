@@ -1,6 +1,7 @@
 /** Gemeinsame Ansicht für Anlagen, Forschung, Werft und Verteidigung. */
 import { api } from '../api.js';
 import { fmt, fmtDuration, esc, el, toast, renderCost, countdown } from '../util.js';
+import { icon } from '../icons.js';
 
 const KIND_TITLE = {
   building: 'Planetare Anlagen',
@@ -72,6 +73,7 @@ function cardHtml(item, kind, resources, activeKeys) {
 
   return `<div class="card ${locked ? 'locked' : 'available'} ${active ? 'building-active' : ''}">
     <div class="card-head">
+      <span class="card-icon">${icon(kind, item.key)}</span>
       <span class="card-title">${esc(item.name)}</span>
       ${levelBadge}
     </div>
