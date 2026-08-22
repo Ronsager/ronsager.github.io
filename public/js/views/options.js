@@ -1,5 +1,6 @@
 import { api, auth } from '../api.js';
 import { fmt, fmtDate, esc, toast } from '../util.js';
+import { startTutorial } from '../tutorial.js';
 
 export async function render(container, ctx) {
   const { state } = ctx;
@@ -44,6 +45,12 @@ export async function render(container, ctx) {
              </div>`}
       </div>
 
+      <div class="panel accent-blue">
+        <h2>Einführung</h2>
+        <p class="small muted">Die Einführung für neue Kommandanten noch einmal durchgehen.</p>
+        <button id="tut-restart" style="margin-top:8px">Einführung erneut ansehen</button>
+      </div>
+
       <div class="panel accent-red">
         <h2>Konto löschen</h2>
         <p class="small muted">Löscht das Konto samt aller Planeten unwiderruflich.</p>
@@ -62,6 +69,8 @@ export async function render(container, ctx) {
         </table>
       </div>
     </div>`;
+
+  document.getElementById('tut-restart').addEventListener('click', () => startTutorial());
 
   document.getElementById('pw-save').addEventListener('click', async () => {
     try {

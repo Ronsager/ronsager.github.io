@@ -89,6 +89,17 @@ router.post('/register', loginLimiter, (req, res) => {
     return res.status(403).json({ error: 'Die Registrierung ist derzeit geschlossen.' });
 
   const { username = '', email = '', password = '', faction } = req.body || {};
+
+  // Die Fraktion prägt die Boni des gesamten Spielverlaufs und lässt sich später
+  // nur noch von einem Administrator ändern – deshalb ist sie hier Pflicht und
+  // wird bewusst nicht stillschweigend auf einen Standard gesetzt.
+  if (!faction || !FACTIONS[faction]) {
+    return res.status(400).json({
+      error: 'Bitte wählen Sie eine Fraktion. Die Wahl bestimmt Ihre Boni und ist später nicht mehr änderbar.',
+      field: 'faction',
+    });
+  }
+
   const result = createAccount({
     username: String(username).trim(),
     email: String(email).trim().toLowerCase(),

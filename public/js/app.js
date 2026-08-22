@@ -1,5 +1,6 @@
 import { api, auth, ApiError } from './api.js';
 import { fmt, fmtShort, fmtDuration, esc, el, toast, closeModal } from './util.js';
+import { startTutorial } from './tutorial.js';
 
 import * as overview from './views/overview.js';
 import * as buildings from './views/buildings.js';
@@ -47,6 +48,17 @@ export const viewParam = () => location.hash.replace('#', '').split('/').slice(1
 /** Serverzeit (näherungsweise), damit Countdowns nicht von der lokalen Uhr abhängen. */
 export const serverNow = () => Date.now() + state.serverOffset;
 
+
+/* ------------------------------------------------------------------ */
+/* Fraktionsdesign                                                     */
+/* ------------------------------------------------------------------ */
+
+/** Färbt die gesamte Oberfläche im Stil der Fraktion. */
+export function applyFactionTheme(faction) {
+  const known = ['federation', 'klingon', 'romulan', 'cardassian', 'ferengi'];
+  document.documentElement.dataset.faction = known.includes(faction) ? faction : 'federation';
+}
+
 /* ------------------------------------------------------------------ */
 /* Anmeldung                                                           */
 /* ------------------------------------------------------------------ */
@@ -74,8 +86,8 @@ async function initAuthScreen() {
     document.getElementById('motd').textContent = cfg.motd || '';
     document.getElementById('faction-picker').innerHTML = cfg.factions
       .map(
-        (f, i) => `<label class="faction-option ${i === 0 ? 'selected' : ''}">
-          <input type="radio" name="faction" value="${esc(f.key)}" ${i === 0 ? 'checked' : ''}>
+        (f) => `<label class="faction-option">
+          <input type="radio" name="faction" value="${esc(f.key)}">
           <span><span class="fname">${esc(f.name)}</span><br><span class="fdesc">${esc(f.description)}</span></span>
         </label>`
       )
@@ -84,6 +96,9 @@ async function initAuthScreen() {
       node.addEventListener('click', () => {
         document.querySelectorAll('.faction-option').forEach((n) => n.classList.remove('selected'));
         node.classList.add('selected');
+        node.querySelector('input').checked = true;
+        applyFactionTheme(node.querySelector('input').value);
+        authAlert('');
       });
     });
     if (!cfg.registrationOpen) {
@@ -131,17 +146,26 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 document.getElementById('register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = e.target.querySelector('button');
+
+  const chosen = document.querySelector('input[name=faction]:checked');
+  if (!chosen) {
+    authAlert('Bitte wählen Sie eine Fraktion aus. Die Wahl bestimmt Ihre Boni für das gesamte Spiel.');
+    document.getElementById('faction-picker').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
   btn.disabled = true;
   try {
     const res = await api.post('/auth/register', {
       username: document.getElementById('reg-name').value,
       email: document.getElementById('reg-email').value,
       password: document.getElementById('reg-pass').value,
-      faction: document.querySelector('input[name=faction]:checked')?.value,
+      faction: chosen.value,
     });
     auth.token = res.token;
     toast(`Willkommen an Bord, ${res.user.username}!`, 'success');
     await start();
+    startTutorial();
   } catch (err) {
     authAlert(err.message);
   } finally {
@@ -154,6 +178,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   auth.token = null;
   state.user = null;
   location.hash = '';
+  applyFactionTheme('federation');
   showAuth();
 });
 
@@ -283,6 +308,7 @@ export async function refresh(rerender = false) {
     state.user = data.user;
     state.planetId = data.planet.id;
     state.serverOffset = data.serverTime - Date.now();
+    applyFactionTheme(data.user.faction);
     renderHeader();
     renderResourceBar();
     renderSidebar();
@@ -342,6 +368,9 @@ async function start() {
   await refresh();
   if (!location.hash) location.hash = 'overview';
   await renderView();
+
+  // Einführung für Konten, die sie noch nicht gesehen haben
+  if (state.data && state.data.tutorialSeen === false) startTutorial();
 }
 
 // Regelmäßige Aktualisierung des Zustands (Multiplayer: Flottenankünfte, Nachrichten)

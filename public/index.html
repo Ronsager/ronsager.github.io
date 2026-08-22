@@ -51,7 +51,7 @@
           <input id="reg-pass" type="password" autocomplete="new-password" minlength="8" required>
         </div>
         <div class="field">
-          <label>Fraktion</label>
+          <label>Fraktion <span class="req">— Pflichtangabe, später nicht änderbar</span></label>
           <div class="faction-picker" id="faction-picker"></div>
         </div>
         <button type="submit" style="width:100%">Kommando übernehmen</button>
@@ -111,6 +111,7 @@
   </footer>
 </div>
 
+<div id="tutorial" class="hidden"></div>
 <div id="toasts"></div>
 <div class="modal-backdrop hidden" id="modal-backdrop">
   <div class="modal" id="modal"></div>

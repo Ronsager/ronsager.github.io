@@ -108,6 +108,7 @@ router.get('/state', (req, res) => {
     queue: queueView(planet.id, req.user.id),
     research,
     unread: unreadCount(req.user.id),
+    tutorialSeen: !!req.user.tutorial_seen,
     serverTime: now(),
   });
 });
@@ -379,6 +380,13 @@ router.get('/planet', (req, res) => {
   const planet = ownPlanet(req, res);
   if (!planet) return;
   res.json({ planet: planetSnapshot(planet.id), queue: queueView(planet.id, req.user.id) });
+});
+
+/** Einführung als gesehen markieren bzw. erneut anzeigen lassen. */
+router.post('/tutorial', (req, res) => {
+  const seen = req.body?.seen === false ? 0 : 1;
+  db.prepare('UPDATE users SET tutorial_seen = ? WHERE id = ?').run(seen, req.user.id);
+  res.json({ ok: true, tutorialSeen: !!seen });
 });
 
 /** Statische Nachschlagedaten für das Frontend. */

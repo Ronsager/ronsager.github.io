@@ -530,3 +530,150 @@ td .row-icon { color: var(--sand); }
   background: var(--orange);
   border-radius: 0 var(--pill) var(--pill) 0;
 }
+
+/* ================= Einführung für neue Kommandanten ================= */
+
+#tutorial {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(0, 0, 0, .82);
+}
+#tutorial.hidden { display: none; }
+
+.tut-box {
+  width: 100%; max-width: 640px; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-panel);
+  border-left: 14px solid var(--lcars-orange);
+  /* Kein Pillen-Radius: Bei dieser Kastenhöhe würde die rechte Seite zu einem
+     Halbkreis, und die Knöpfe unten rechts lägen außerhalb der Form – sichtbar,
+     aber nicht anklickbar, weil die Treffprüfung Rundungen berücksichtigt. */
+  border-radius: 0 22px 22px 0;
+  overflow: hidden;
+}
+
+.tut-head { flex: 0 0 auto; padding: 16px 24px 10px; background: var(--bg-panel-2); }
+.tut-step {
+  font-size: .62rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--lcars-lilac);
+}
+.tut-head h2 { margin: 4px 0 0; color: var(--lcars-orange); font-size: 1.3rem; }
+
+/* min-height:0 ist hier zwingend: Ohne diese Angabe schrumpft ein scrollbares
+   Flex-Kind nicht unter seine Inhaltshöhe, schiebt die Knopfleiste aus dem
+   Kasten hinaus, und overflow:hidden schneidet sie ab – die Knöpfe wären dann
+   sichtbar, aber nicht anklickbar. */
+.tut-content {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 16px 24px; font-size: .92rem; line-height: 1.6;
+}
+.tut-content p { margin-bottom: 10px; }
+.tut-content ul, .tut-content ol { margin: 0 0 10px 22px; }
+.tut-content li { margin-bottom: 5px; }
+.tut-content b { color: var(--lcars-tan); }
+
+.tut-hint {
+  border-left: 4px solid var(--lcars-ice);
+  background: rgba(153, 204, 255, .08);
+  padding: 8px 12px; font-size: .85rem;
+}
+
+.tut-res { display: grid; gap: 8px; margin-bottom: 12px; }
+.tut-res > div {
+  display: grid; grid-template-columns: 108px 1fr; gap: 10px; align-items: baseline;
+  padding: 7px 10px; background: var(--bg-panel-2); border-radius: 4px;
+}
+.tut-res b { font-size: .9rem; }
+.tut-res span { font-size: .82rem; color: var(--muted); }
+.tut-dur { color: var(--lcars-orange); }
+.tut-dil { color: var(--lcars-ice); }
+.tut-deu { color: var(--lcars-lilac); }
+.tut-ene { color: var(--lcars-tan); }
+
+.tut-dots { flex: 0 0 auto; display: flex; gap: 6px; justify-content: center; padding: 4px 0 10px; }
+.tut-dot {
+  width: 26px; height: 5px; border-radius: var(--pill);
+  background: var(--border); transition: background .2s;
+}
+.tut-dot.done   { background: var(--lcars-lilac); }
+.tut-dot.active { background: var(--lcars-orange); }
+
+.tut-actions {
+  flex: 0 0 auto;
+  display: flex; gap: 8px; align-items: center;
+  padding: 12px 24px 16px; border-top: 1px solid var(--border);
+}
+
+/* Pflichtkennzeichnung bei der Fraktionswahl */
+.req { color: var(--lcars-salmon); font-size: .62rem; letter-spacing: .06em; }
+
+@media (max-width: 700px) {
+  .tut-box { border-left-width: 8px; border-radius: 0 12px 12px 0; }
+  .tut-res > div { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* Zur Laufzeit änderbare Spielparameter im Adminbereich */
+.tunable { background: var(--bg-panel-2); border-radius: 4px; padding: 8px 10px; }
+.tunable label { margin-bottom: 5px; color: var(--lcars-tan); }
+.tunable input[type="range"] { padding: 0; accent-color: var(--lcars-orange); }
+
+/* ================= Fraktionsdesigns ================= */
+/*
+   Jede Fraktion färbt das Interface im Stil ihrer eigenen Bildschirmgrafik.
+   Gesetzt wird das über data-faction am <html>-Element – dadurch greifen die
+   Farben überall, ohne dass einzelne Bausteine etwas davon wissen müssen.
+*/
+
+/* Vereinigte Föderation der Planeten – klassisches LCARS in Orange und Flieder */
+:root[data-faction="federation"] {
+  --lcars-orange: #ff9900;  --lcars-tan: #ffcc66;
+  --lcars-lilac:  #cc99cc;  --lcars-blue: #9999ff;
+  --lcars-salmon: #ff7b6b;  --lcars-ice: #99ccff;
+  --text: #ffcc99;
+}
+
+/* Klingonisches Imperium – Blutrot auf Schwarz, kantig und martialisch */
+:root[data-faction="klingon"] {
+  --lcars-orange: #cc2b1d;  --lcars-tan: #e07a2f;
+  --lcars-lilac:  #8c1c13;  --lcars-blue: #b03a2e;
+  --lcars-salmon: #ff5533;  --lcars-ice: #e8a33d;
+  --lcars-green:  #c9a227;
+  --text: #f0c9a0;  --muted: #9a7a5a;  --border: #3a1a12;
+  --bg-panel: #120806;  --bg-panel-2: #1d0c08;
+}
+
+/* Romulanisches Sternenimperium – Grüntöne der Singularitätstechnik */
+:root[data-faction="romulan"] {
+  --lcars-orange: #3fae6d;  --lcars-tan: #7fd4a0;
+  --lcars-lilac:  #2e7d5b;  --lcars-blue: #4fc3a1;
+  --lcars-salmon: #d4b483;  --lcars-ice: #a8e6c8;
+  --lcars-green:  #66ffaa;
+  --text: #c8f0d8;  --muted: #6f9a84;  --border: #123024;
+  --bg-panel: #04120c; --bg-panel-2: #071c13;
+}
+
+/* Cardassianische Union – Ockergelb und Braun der Terok-Nor-Konsolen */
+:root[data-faction="cardassian"] {
+  --lcars-orange: #d9a441;  --lcars-tan: #e8c77a;
+  --lcars-lilac:  #8a6d3b;  --lcars-blue: #b08d57;
+  --lcars-salmon: #c66b3d;  --lcars-ice: #e0cfa0;
+  --lcars-green:  #9ab973;
+  --text: #ecd9a8;  --muted: #9b8256;  --border: #3a2c16;
+  --bg-panel: #120e05; --bg-panel-2: #1c1608;
+}
+
+/* Ferengi-Allianz – Gold und Bernstein, dem Latinum zu Ehren */
+:root[data-faction="ferengi"] {
+  --lcars-orange: #e6b422;  --lcars-tan: #ffd966;
+  --lcars-lilac:  #a67c00;  --lcars-blue: #d4af37;
+  --lcars-salmon: #e07b39;  --lcars-ice: #ffe9a8;
+  --lcars-green:  #b5cc4a;
+  --text: #ffe9b0;  --muted: #a08d55;  --border: #3d3110;
+  --bg-panel: #100d03; --bg-panel-2: #1b1606;
+}
+
+/* Fraktionswappen auf dem Anmeldeschirm */
+.auth-crest { display: flex; justify-content: center; margin-bottom: 10px; }
+.auth-crest svg { width: 76px; height: 76px; }
+.faction-option { transition: border-color .15s, background .15s; }
+.faction-option.selected .fname { color: var(--lcars-orange); }

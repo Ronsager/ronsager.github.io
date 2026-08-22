@@ -488,12 +488,19 @@ async function settings(body) {
       </div>
 
       <div class="panel accent-blue">
-        <h2>Konfiguration</h2>
+        <h2>Spielparameter · Änderung wirkt sofort</h2>
+        <p class="small muted">
+          Diese Werte lassen sich im laufenden Betrieb ändern — ein Neustart ist nicht nötig.
+          Neue Berechnungen verwenden den neuen Wert sofort. Bereits erteilte Bauaufträge und
+          gestartete Flotten behalten ihre beim Start berechneten Zeiten.
+        </p>
+        <div id="tunables-box"><div class="loader">Werte werden geladen</div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Feste Konfiguration</h2>
         <p class="small muted">Diese Werte stammen aus der .env-Datei und erfordern einen Serverneustart.</p>
         <table>
-          <tr><td class="muted">Wirtschaftstempo</td><td class="mono">${d.settings.speed.economy}×</td></tr>
-          <tr><td class="muted">Bautempo</td><td class="mono">${d.settings.speed.build}×</td></tr>
-          <tr><td class="muted">Flottentempo</td><td class="mono">${d.settings.speed.fleet}×</td></tr>
           <tr><td class="muted">Universum</td><td class="mono">${d.settings.universe.quadrants} × ${d.settings.universe.systems} × ${d.settings.universe.slots}</td></tr>
           <tr><td class="muted">Datenbank</td><td class="tiny mono">${esc(d.settings.dbFile)}</td></tr>
         </table>
@@ -511,6 +518,8 @@ async function settings(body) {
         </div>
       </div>
     </div>`;
+
+  await renderTunables();
 
   document.getElementById('s-save').addEventListener('click', async () => {
     await api.post('/admin/settings', {
@@ -548,4 +557,81 @@ async function log(body) {
         </tr>`).join('') || '<tr><td colspan="5" class="muted small">Noch keine Einträge.</td></tr>'}
       </table></div>
     </div>`;
+}
+
+
+/** Regler und Felder für die zur Laufzeit änderbaren Spielparameter. */
+async function renderTunables() {
+  const box = document.getElementById('tunables-box');
+  if (!box) return;
+  const { tunables } = await api.get('/admin/tunables');
+
+  const speedKeys = ['speed_economy', 'speed_build', 'speed_fleet'];
+  const startKeys = ['start_duranium', 'start_dilithium', 'start_deuterium'];
+
+  const field = (key) => {
+    const t = tunables[key];
+    if (!t) return '';
+    const isSpeed = key.startsWith('speed_');
+    return `<div class="tunable">
+      <label for="tu-${key}">${esc(t.label)}</label>
+      <div class="row" style="gap:8px;align-items:center">
+        ${isSpeed ? `<input type="range" id="tu-range-${key}" min="1" max="100" step="1"
+                       value="${Math.min(100, Math.max(1, Math.round(t.value)))}" style="flex:1;min-width:110px">` : ''}
+        <input type="number" id="tu-${key}" value="${t.value}" min="${t.min}" step="${isSpeed ? '0.5' : '100'}"
+               style="width:${isSpeed ? '92' : '132'}px">
+        ${isSpeed ? '<span class="muted small">×</span>' : ''}
+      </div>
+    </div>`;
+  };
+
+  box.innerHTML = `
+    <h3 style="margin:4px 0 8px">Geschwindigkeiten</h3>
+    <div class="grid cols-3">${speedKeys.map(field).join('')}</div>
+    <h3 style="margin:14px 0 8px">Startausstattung neuer Kommandanten</h3>
+    <div class="grid cols-3">${startKeys.map(field).join('')}</div>
+    <div class="row" style="margin-top:12px">
+      <button id="tu-save">Übernehmen</button>
+      <button class="secondary" id="tu-preset-slow">Vorgabe: gemächlich (1×)</button>
+      <button class="secondary" id="tu-preset-normal">Vorgabe: normal (5×)</button>
+      <button class="secondary" id="tu-preset-fast">Vorgabe: schnell (25×)</button>
+    </div>`;
+
+  // Regler und Zahlenfeld gekoppelt
+  for (const key of speedKeys) {
+    const range = document.getElementById(`tu-range-${key}`);
+    const num = document.getElementById(`tu-${key}`);
+    range.addEventListener('input', () => { num.value = range.value; });
+    num.addEventListener('input', () => {
+      const v = Number(num.value);
+      if (Number.isFinite(v)) range.value = Math.min(100, Math.max(1, Math.round(v)));
+    });
+  }
+
+  const preset = (economy, build, fleet) => () => {
+    document.getElementById('tu-speed_economy').value = economy;
+    document.getElementById('tu-speed_build').value = build;
+    document.getElementById('tu-speed_fleet').value = fleet;
+    for (const key of speedKeys) {
+      const num = document.getElementById(`tu-${key}`);
+      document.getElementById(`tu-range-${key}`).value = Math.min(100, Math.max(1, Math.round(Number(num.value))));
+    }
+  };
+  document.getElementById('tu-preset-slow').addEventListener('click', preset(1, 1, 1));
+  document.getElementById('tu-preset-normal').addEventListener('click', preset(5, 5, 3));
+  document.getElementById('tu-preset-fast').addEventListener('click', preset(25, 25, 10));
+
+  document.getElementById('tu-save').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    const payload = {};
+    for (const key of [...speedKeys, ...startKeys]) payload[key] = document.getElementById(`tu-${key}`).value;
+    try {
+      const r = await api.post('/admin/tunables', payload);
+      toast(r.changes.length ? `Übernommen: ${r.changes.join('; ')}` : 'Keine Änderungen.', 'success');
+      await renderTunables();
+    } catch (err) {
+      toast(err.message, 'error');
+      e.target.disabled = false;
+    }
+  });
 }

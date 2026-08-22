@@ -197,6 +197,20 @@ CREATE TABLE IF NOT EXISTS settings (
 `);
 
 /* ------------------------------------------------------------------ */
+/* Nachträgliche Schemaerweiterungen                                   */
+/* ------------------------------------------------------------------ */
+
+/** Fügt eine Spalte hinzu, falls sie noch fehlt (für bestehende Datenbanken). */
+function addColumnIfMissing(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (cols.some((c) => c.name === column)) return false;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  return true;
+}
+
+addColumnIfMissing('users', 'tutorial_seen', 'INTEGER NOT NULL DEFAULT 0');
+
+/* ------------------------------------------------------------------ */
 /* Hilfsfunktionen                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -244,6 +258,61 @@ export function addCount(table, idColumn, id, key, delta) {
     `INSERT INTO ${table} (${idColumn}, key, count) VALUES (?,?,?)
      ON CONFLICT(${idColumn}, key) DO UPDATE SET count = MAX(0, count + ?)`
   ).run(id, key, Math.max(0, delta), delta);
+}
+
+/* ------------------------------------------------------------------ */
+/* Zur Laufzeit änderbare Spielparameter                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Geschwindigkeiten und Startausstattung liegen in der Einstellungstabelle und
+ * überschreiben die Werte aus der .env. Da sämtliche Berechnungen config.speed
+ * erst im Moment des Aufrufs lesen, wirkt eine Änderung sofort – ohne Neustart.
+ */
+export const TUNABLES = {
+  speed_economy:    { target: ['speed', 'economy'],   min: 0.1, max: 10000, label: 'Wirtschaftstempo' },
+  speed_build:      { target: ['speed', 'build'],     min: 0.1, max: 10000, label: 'Bautempo' },
+  speed_fleet:      { target: ['speed', 'fleet'],     min: 0.1, max: 10000, label: 'Flottentempo' },
+  start_duranium:   { target: ['start', 'duranium'],  min: 0,   max: 1e12,  label: 'Start-Duranium' },
+  start_dilithium:  { target: ['start', 'dilithium'], min: 0,   max: 1e12,  label: 'Start-Dilithium' },
+  start_deuterium:  { target: ['start', 'deuterium'], min: 0,   max: 1e12,  label: 'Start-Deuterium' },
+};
+
+/** Setzt einen Parameter zur Laufzeit und speichert ihn dauerhaft. */
+export function setTunable(key, value) {
+  const def = TUNABLES[key];
+  if (!def) return { error: `Unbekannter Parameter: ${key}` };
+  const v = Number(value);
+  if (!Number.isFinite(v)) return { error: `${def.label}: keine gültige Zahl.` };
+  if (v < def.min || v > def.max)
+    return { error: `${def.label} muss zwischen ${def.min} und ${def.max} liegen.` };
+
+  const [group, prop] = def.target;
+  const previous = config[group][prop];
+  config[group][prop] = v;
+  setSetting(key, String(v));
+  return { ok: true, key, label: def.label, previous, value: v };
+}
+
+/** Aktuelle Werte aller änderbaren Parameter. */
+export function getTunables() {
+  const out = {};
+  for (const [key, def] of Object.entries(TUNABLES)) {
+    const [group, prop] = def.target;
+    out[key] = { value: config[group][prop], label: def.label, min: def.min, max: def.max };
+  }
+  return out;
+}
+
+/** Beim Start gespeicherte Werte auf die Konfiguration anwenden. */
+for (const [key, def] of Object.entries(TUNABLES)) {
+  const stored = getSetting(key);
+  if (stored === null) continue;
+  const v = Number(stored);
+  if (Number.isFinite(v) && v >= def.min && v <= def.max) {
+    const [group, prop] = def.target;
+    config[group][prop] = v;
+  }
 }
 
 /** Startwerte für Einstellungen einmalig anlegen. */

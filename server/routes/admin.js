@@ -1,5 +1,5 @@
 import express from 'express';
-import { db, now, getSetting, setSetting, logAdmin, getBuildings, getShips, getDefenses, getResearch, setLevel } from '../db.js';
+import { db, now, getSetting, setSetting, logAdmin, getBuildings, getShips, getDefenses, getResearch, setLevel, setTunable, getTunables } from '../db.js';
 import { config } from '../config.js';
 import { BUILDINGS, RESEARCH, SHIPS, DEFENSES, FACTIONS, RESOURCES, MISSIONS } from '../gamedata.js';
 import { authenticate, requireAdmin, hashPassword } from '../auth.js';
@@ -446,6 +446,30 @@ router.post('/settings', (req, res) => {
     ok: true,
     settings: { motd: getSetting('motd', ''), registrationOpen: getSetting('registration_open', '1') === '1' },
   });
+});
+
+/**
+ * Spielparameter im laufenden Betrieb ändern (Geschwindigkeiten, Startausstattung).
+ * Die Werte wirken sofort für alle künftigen Berechnungen; bereits erteilte
+ * Bauaufträge und gestartete Flotten behalten ihre beim Start berechneten Zeiten.
+ */
+router.post('/tunables', (req, res) => {
+  const changes = [];
+  const errors = [];
+  for (const [key, value] of Object.entries(req.body || {})) {
+    if (value === '' || value === null || value === undefined) continue;
+    const result = setTunable(key, value);
+    if (result.error) errors.push(result.error);
+    else if (result.previous !== result.value)
+      changes.push(`${result.label}: ${result.previous} → ${result.value}`);
+  }
+  if (errors.length) return res.status(400).json({ error: errors.join(' ') });
+  if (changes.length) logAdmin(req.user, 'tunables', '', changes.join('; '));
+  res.json({ ok: true, changes, tunables: getTunables() });
+});
+
+router.get('/tunables', (req, res) => {
+  res.json({ tunables: getTunables() });
 });
 
 router.post('/broadcast', (req, res) => {
