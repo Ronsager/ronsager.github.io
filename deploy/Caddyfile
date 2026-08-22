@@ -1,0 +1,9 @@
+# Einfachste Variante mit automatischem HTTPS.
+#   sudo caddy run --config deploy/Caddyfile
+#
+# Caddy besorgt und erneuert das Let's-Encrypt-Zertifikat selbstständig.
+
+spiel.example.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:3000
+}

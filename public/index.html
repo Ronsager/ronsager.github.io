@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Trek Conquest</title>
+<meta name="description" content="Browserbasiertes Weltraum-Strategiespiel im Star-Trek-Universum">
+<link rel="stylesheet" href="/css/lcars.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🖖</text></svg>">
+</head>
+<body>
+
+<!-- ══════════ Anmeldung ══════════ -->
+<div class="auth-screen active" id="auth-screen">
+  <div class="auth-box">
+    <div class="logo">
+      <div class="title">Star Trek</div>
+      <div class="title" style="font-size:1.3rem">Conquest</div>
+      <div class="sub">Sternenflottenkommando</div>
+    </div>
+    <div class="panel accent-orange">
+      <div class="tabs">
+        <button id="tab-login" class="active">Anmelden</button>
+        <button id="tab-register">Neues Kommando</button>
+      </div>
+      <div id="auth-alert"></div>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="login-name">Kommandant oder E-Mail</label>
+          <input id="login-name" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="login-pass">Zugangscode</label>
+          <input id="login-pass" type="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" style="width:100%">Verbindung herstellen</button>
+      </form>
+
+      <form id="register-form" style="display:none">
+        <div class="field">
+          <label for="reg-name">Kommandantenname</label>
+          <input id="reg-name" autocomplete="username" minlength="3" maxlength="20" required>
+        </div>
+        <div class="field">
+          <label for="reg-email">E-Mail</label>
+          <input id="reg-email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="reg-pass">Zugangscode (min. 8 Zeichen)</label>
+          <input id="reg-pass" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="field">
+          <label>Fraktion</label>
+          <div class="faction-picker" id="faction-picker"></div>
+        </div>
+        <button type="submit" style="width:100%">Kommando übernehmen</button>
+      </form>
+    </div>
+    <p class="small muted center" id="motd"></p>
+  </div>
+</div>
+
+<!-- ══════════ Spiel ══════════ -->
+<div class="app" id="app">
+  <header class="topbar">
+    <span class="brand">Star Trek Conquest</span>
+    <span class="small" id="header-player"></span>
+    <span class="spacer"></span>
+    <span class="small muted mono" id="server-time"></span>
+    <button class="secondary small" id="btn-logout">Abmelden</button>
+  </header>
+
+  <div class="resource-bar" id="resource-bar"></div>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main id="view"><div class="loader">Sensoren kalibrieren</div></main>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<div class="modal-backdrop hidden" id="modal-backdrop">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

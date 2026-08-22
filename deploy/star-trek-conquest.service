@@ -1,0 +1,37 @@
+# systemd-Dienst für den Dauerbetrieb auf einem Linux-Server.
+#
+#   sudo cp deploy/star-trek-conquest.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now star-trek-conquest
+#   sudo journalctl -u star-trek-conquest -f
+
+[Unit]
+Description=Star Trek Conquest – Browserspiel-Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stconquest
+Group=stconquest
+WorkingDirectory=/opt/star-trek-conquest
+EnvironmentFile=/opt/star-trek-conquest/.env
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=5
+
+# Absicherung
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/star-trek-conquest/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

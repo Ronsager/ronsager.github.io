@@ -1,0 +1,29 @@
+{
+  "name": "star-trek-conquest",
+  "version": "1.0.0",
+  "description": "Star Trek Conquest - ein browserbasiertes Weltraum-Strategiespiel im Stil von OGame (Multiplayer, Datenbank, Adminbereich)",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "seed": "node scripts/seed.js",
+    "reset": "node scripts/reset.js"
+  },
+  "keywords": ["ogame", "star-trek", "browsergame", "strategy", "multiplayer"],
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.5.0",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

@@ -1,0 +1,32 @@
+services:
+  star-trek-conquest:
+    build: .
+    container_name: star-trek-conquest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - game-data:/app/data
+    environment:
+      # UNBEDINGT ÄNDERN – z. B. mit:
+      #   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+      JWT_SECRET: "${JWT_SECRET:?Bitte JWT_SECRET in einer .env-Datei setzen}"
+      TRUST_PROXY: "1"
+
+      # Erster Administrator (nur beim allerersten Start relevant)
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@example.com}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+
+      # Spielgeschwindigkeit
+      SPEED_ECONOMY: "5"
+      SPEED_BUILD: "5"
+      SPEED_FLEET: "3"
+
+      # Universumsgröße
+      UNI_QUADRANTS: "4"
+      UNI_SYSTEMS: "200"
+      UNI_SLOTS: "15"
+
+volumes:
+  game-data:
