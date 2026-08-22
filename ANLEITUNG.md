@@ -363,6 +363,11 @@ parallele Lese- und Schreibzugriffe.
 
 Das Schema legt sich beim ersten Start selbst an — es gibt keinen separaten Migrationsschritt.
 
+Geschrieben wird nur, wenn sich etwas verändert: Die minütliche Punkteberechnung
+vergleicht ihr Ergebnis mit dem gespeicherten Stand und schreibt ausschließlich bei
+Abweichung. Ist niemand online, verursacht der laufende Server damit keine
+Schreibzugriffe — relevant für Einplatinenrechner mit SD-Karte.
+
 ### Sicherung
 
 **Im laufenden Betrieb** (transaktionssicher, kein Serverstopp nötig):

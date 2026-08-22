@@ -2,6 +2,17 @@ import { db, now, getResearch } from '../db.js';
 import { computePoints } from './formulas.js';
 import { SHIPS } from '../gamedata.js';
 
+const STAT_COLUMNS = ['points', 'eco_points', 'res_points', 'mil_points'];
+
+/**
+ * Vergleicht gespeicherte und neu berechnete Punktestände.
+ * Die kleine Toleranz fängt Rundungsunterschiede der Gleitkommaarithmetik ab –
+ * ein Punktwert ändert sich real immer um deutlich mehr als ein Millionstel.
+ */
+function statsDiffer(current, next) {
+  return STAT_COLUMNS.some((key) => Math.abs((current[key] || 0) - (next[key] || 0)) > 1e-6);
+}
+
 /** Punkte eines Spielers neu berechnen (Gebäude + Forschung + Flotte + Verteidigung). */
 export function recomputeUser(userId) {
   const planets = db.prepare('SELECT id FROM planets WHERE user_id = ?').all(userId);
@@ -35,7 +46,20 @@ export function recomputeUser(userId) {
   }
 
   const rest = computePoints({ research, ships, defenses });
-  const total = eco + rest.res_points + rest.mil_points;
+  const next = {
+    points: eco + rest.res_points + rest.mil_points,
+    eco_points: eco,
+    res_points: rest.res_points,
+    mil_points: rest.mil_points,
+  };
+
+  // Nur schreiben, wenn sich tatsächlich etwas geändert hat.
+  // Solange niemand spielt, entstehen dadurch überhaupt keine Schreibzugriffe –
+  // das schont vor allem SD-Karten auf Einplatinenrechnern wie dem Raspberry Pi.
+  const current = db
+    .prepare('SELECT points, eco_points, res_points, mil_points FROM stats WHERE user_id = ?')
+    .get(userId);
+  if (current && !statsDiffer(current, next)) return next;
 
   db.prepare(
     `INSERT INTO stats (user_id, points, eco_points, res_points, mil_points, updated_at)
@@ -44,9 +68,9 @@ export function recomputeUser(userId) {
        points = excluded.points, eco_points = excluded.eco_points,
        res_points = excluded.res_points, mil_points = excluded.mil_points,
        updated_at = excluded.updated_at`
-  ).run(userId, total, eco, rest.res_points, rest.mil_points, now());
+  ).run(userId, next.points, next.eco_points, next.res_points, next.mil_points, now());
 
-  return { points: total, eco_points: eco, res_points: rest.res_points, mil_points: rest.mil_points };
+  return next;
 }
 
 /** Punkte aller Spieler neu berechnen (Cron/Tick). */

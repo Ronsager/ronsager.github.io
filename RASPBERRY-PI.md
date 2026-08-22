@@ -40,9 +40,9 @@ nur deinen normalen Computer, den Pi und WLAN.
 Nicht nötig: Bildschirm, Tastatur, HDMI-Adapter, Netzwerkkabel. Der Pi Zero 2 W
 hat ohnehin keinen Ethernet-Anschluss — die Einrichtung läuft komplett über WLAN.
 
-> **Optional, aber empfohlen:** ein USB-Stick oder eine kleine USB-SSD samt
-> **Micro-USB-OTG-Adapter**. Darauf legst du später die Spieldatenbank, was die
-> Speicherkarte schont. Siehe Schritt 7.
+> **Rein optional:** ein USB-Stick oder eine kleine USB-SSD samt
+> **Micro-USB-OTG-Adapter**, um die Spieldatenbank auszulagern. Nötig ist das
+> nicht — der Server schreibt im Leerlauf nichts auf die Karte. Siehe Schritt 7.
 
 ---
 
@@ -314,9 +314,13 @@ Speichern mit `Strg`+`O`, `Enter`, dann `Strg`+`X` zum Beenden.
 
 ### Optional: Datenbank auf einen USB-Stick legen
 
-Der Spielserver schreibt jede Minute in die Datenbank, auch wenn niemand spielt.
-Für die Speicherkarte ist das auf Dauer Stress. Wenn du einen USB-Stick mit
-OTG-Adapter am äußeren Anschluss hast:
+Der Spielserver schreibt nur dann in die Datenbank, wenn sich tatsächlich etwas
+verändert hat — solange niemand spielt, wird die Speicherkarte gar nicht angefasst.
+Für den normalen Betrieb reicht eine ordentliche A1/A2-Karte deshalb völlig aus.
+
+Wer dauerhaft viele Mitspieler hat und die Karte zusätzlich entlasten will, legt
+die Datenbank auf einen USB-Stick. Dafür brauchst du einen **Micro-USB-OTG-Adapter**
+am äußeren Anschluss:
 
 ```bash
 lsblk                                    # Stick finden, meist /dev/sda1
