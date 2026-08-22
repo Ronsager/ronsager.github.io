@@ -468,14 +468,22 @@ sudo tailscale up
 ```
 
 Der Befehl zeigt eine Internetadresse an. Öffne sie im Browser und melde dich an
-(Google-, Microsoft- oder GitHub-Konto genügt, kostenlos). Danach:
+(Google-, Microsoft- oder GitHub-Konto genügt, kostenlos). Danach die Freigabe
+einschalten — **unbedingt mit `--bg`**:
 
 ```bash
-sudo tailscale funnel 3000
+sudo tailscale funnel --bg 3000
 ```
 
+> ### ⚠ Das `--bg` ist wichtig
+> Ohne diesen Zusatz läuft die Freigabe nur im Vordergrund: Sie endet, sobald du
+> `Strg`+`C` drückst **oder einfach die SSH-Verbindung schließt**. Die Adresse ist
+> dann tot, obwohl der Spielserver weiterläuft. Mit `--bg` bleibt die Freigabe
+> dauerhaft bestehen und übersteht auch einen Neustart des Pi.
+
 Beim ersten Mal weist Tailscale dich eventuell an, **HTTPS-Zertifikate** und
-**Funnel** in der Weboberfläche freizuschalten — folge einfach dem angezeigten Link.
+**Funnel** in der Weboberfläche freizuschalten — folge einfach dem angezeigten Link
+und wiederhole den Befehl danach.
 
 Anschließend bekommst du eine Adresse in dieser Form:
 
@@ -485,17 +493,30 @@ https://sternenflotte.dein-name.ts.net
 
 Diese Adresse gibst du deinen Mitspielern. Fertig — inklusive HTTPS.
 
-Damit die Freigabe einen Neustart übersteht:
+### Wenn die Funnel-Adresse nicht erreichbar ist
+
+Arbeite diese vier Prüfungen der Reihe nach ab:
 
 ```bash
+# 1. Läuft der Spielserver überhaupt?
+curl http://localhost:3000/api/health
+
+# 2. Ist die Freigabe aktiv? Hier muss dein ts.net-Name mit Port 3000 auftauchen
+sudo tailscale funnel status
+
+# 3. Ist der Pi überhaupt mit Tailscale verbunden?
+sudo tailscale status
+
+# 4. Freigabe neu setzen
 sudo tailscale funnel --bg 3000
 ```
 
-Prüfen, was gerade freigegeben ist:
+Zeigt Punkt 2 nichts an, war die Freigabe ohne `--bg` gestartet und ist beim
+Schließen der SSH-Sitzung verschwunden — der häufigste Fall.
 
-```bash
-sudo tailscale funnel status
-```
+Meldet Tailscale etwas wie *„Funnel is not enabled"*, musst du Funnel einmalig in
+der Tailscale-Weboberfläche unter **Access Controls** freischalten; der Befehl gibt
+dazu einen direkten Link aus.
 
 ---
 
@@ -606,6 +627,24 @@ Fast immer liegt es am WLAN:
 
 Im Zweifel: Karte neu beschreiben und in Schritt 2 alles noch einmal sorgfältig
 eintragen. Das geht schneller als die Fehlersuche.
+
+### Die Seite sieht kaputt aus / die Anmeldung reagiert nicht
+
+War ein Fehler in älteren Fassungen dieses Projekts: Ein Sicherheitsheader zwang
+den Browser, Stylesheet und Skripte über `https://` zu laden — was beim Zugriff
+per `http://…:3000` im Heimnetz fehlschlägt. Die Seite erschien dann unformatiert
+und der Anmeldeknopf tat nichts.
+
+Behoben. Falls du eine ältere Fassung geklont hast:
+
+```bash
+cd ~/star-trek-conquest
+git pull
+sudo systemctl restart star-trek-conquest
+```
+
+Danach im Browser einmal mit `Strg`+`Umschalt`+`R` neu laden, damit der
+zwischengespeicherte alte Stand verworfen wird.
 
 ### Das Spiel ist nicht erreichbar
 

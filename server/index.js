@@ -34,6 +34,12 @@ app.use(
         fontSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
+        // helmet setzt diese Anweisung sonst automatisch. Sie zwingt den Browser,
+        // jede http://-Anfrage auf https:// umzuschreiben – beim Zugriff über
+        // Hostname oder IP im Heimnetz (http://pi.fritz.box:3000) scheitern dadurch
+        // Stylesheet und Skripte. Über localhost fällt das nicht auf, weil Browser
+        // dafür eine Ausnahme machen. Ein vorgelagerter Proxy liefert HTTPS ohnehin.
+        upgradeInsecureRequests: null,
       },
     },
     crossOriginEmbedderPolicy: false,
