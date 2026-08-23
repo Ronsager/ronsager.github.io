@@ -12,6 +12,7 @@ import * as defense from './views/defense.js';
 import * as fleet from './views/fleet.js';
 import * as galaxy from './views/galaxy.js';
 import * as messages from './views/messages.js';
+import * as chat from './views/chat.js';
 import * as alliance from './views/alliance.js';
 import * as highscore from './views/highscore.js';
 import * as options from './views/options.js';
@@ -38,6 +39,7 @@ const VIEWS = {
   fleet:     { label: 'Flotte',          module: fleet,     group: 'Operationen' },
   galaxy:    { label: 'Galaxie',         module: galaxy,    group: 'Operationen' },
   messages:  { label: 'Nachrichten',     module: messages,  group: 'Operationen', badge: 'unread' },
+  chat:      { label: 'Chat',            module: chat,      group: 'Gemeinschaft' },
   alliance:  { label: 'Flottenverband',  module: alliance,  group: 'Gemeinschaft' },
   highscore: { label: 'Rangliste',       module: highscore, group: 'Gemeinschaft' },
   options:   { label: 'Einstellungen',   module: options,   group: 'Gemeinschaft' },

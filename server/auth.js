@@ -43,12 +43,27 @@ export function authenticate(req, res, next) {
   next();
 }
 
+export const ROLES = ['user', 'moderator', 'admin'];
+
 /** Nur für Administratoren. */
 export function requireAdmin(req, res, next) {
   if (req.user?.role !== 'admin')
     return res.status(403).json({ error: 'Für diesen Bereich fehlen die Berechtigungen der Sternenflotten-Admiralität.' });
   next();
 }
+
+/**
+ * Für Moderation im Chat. Administratoren haben diese Rechte ebenfalls –
+ * eine eigene Moderatorenrolle erlaubt es, Spielern das Moderieren zu
+ * übertragen, ohne ihnen den gesamten Adminbereich zu öffnen.
+ */
+export function requireModerator(req, res, next) {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'moderator')
+    return res.status(403).json({ error: 'Diese Aktion ist Moderatoren vorbehalten.' });
+  next();
+}
+
+export const isModerator = (user) => user?.role === 'admin' || user?.role === 'moderator';
 
 export function setAuthCookie(res, token) {
   res.cookie('stc_token', token, {

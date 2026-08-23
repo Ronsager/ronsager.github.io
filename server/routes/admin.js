@@ -2,7 +2,7 @@ import express from 'express';
 import { db, now, getSetting, setSetting, logAdmin, getBuildings, getShips, getDefenses, getResearch, setLevel, setTunable, getTunables } from '../db.js';
 import { config } from '../config.js';
 import { BUILDINGS, RESEARCH, SHIPS, DEFENSES, FACTIONS, RESOURCES, MISSIONS } from '../gamedata.js';
-import { authenticate, requireAdmin, hashPassword } from '../auth.js';
+import { authenticate, requireAdmin, hashPassword, ROLES } from '../auth.js';
 import { tickPlanet, createPlanet, findHomeworldSlot, planetSnapshot, addDebris } from '../engine/planet.js';
 import { recomputeUser, recomputeAll } from '../engine/stats.js';
 import { sendMessage, broadcast } from '../engine/messages.js';
@@ -77,8 +77,12 @@ router.get('/users', (req, res) => {
     seen: 'u.last_seen DESC', id: 'u.id ASC',
   };
   const order = sortMap[String(req.query.sort)] || sortMap.points;
-  const where = search ? 'WHERE u.username LIKE ? OR u.email LIKE ?' : '';
-  const params = search ? [`%${search}%`, `%${search}%`] : [];
+  const roleFilter = ROLES.includes(String(req.query.role)) ? String(req.query.role) : null;
+  const clauses = [];
+  const params = [];
+  if (search) { clauses.push('(u.username LIKE ? OR u.email LIKE ?)'); params.push(`%${search}%`, `%${search}%`); }
+  if (roleFilter) { clauses.push('u.role = ?'); params.push(roleFilter); }
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
 
   const rows = db
     .prepare(
@@ -173,7 +177,7 @@ router.patch('/users/:id', (req, res) => {
       return res.status(400).json({ error: 'E-Mail bereits vergeben.' });
     fields.push('email = ?'); values.push(email); changes.push(`E-Mail geändert`);
   }
-  if (b.role === 'user' || b.role === 'admin') {
+  if (ROLES.includes(b.role)) {
     if (b.role !== user.role) {
       if (user.id === req.user.id && b.role !== 'admin')
         return res.status(400).json({ error: 'Die eigenen Administratorrechte können nicht entzogen werden.' });

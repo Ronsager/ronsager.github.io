@@ -11,6 +11,7 @@ let tab = 'dashboard';
 let userPage = 0;
 let userSearch = '';
 let userSort = 'points';
+let userRole = '';
 let catalog = null;
 
 export async function render(container, ctx) {
@@ -96,7 +97,7 @@ async function dashboard(body) {
 /* ------------------------------------------------------------------ */
 
 async function users(body) {
-  const d = await api.get(`/admin/users?page=${userPage}&search=${encodeURIComponent(userSearch)}&sort=${userSort}`);
+  const d = await api.get(`/admin/users?page=${userPage}&search=${encodeURIComponent(userSearch)}&sort=${userSort}&role=${userRole}`);
   body.innerHTML = `
     <div class="panel accent-orange">
       <div class="row" style="margin-bottom:10px">
@@ -104,6 +105,10 @@ async function users(body) {
         <select id="sort" style="width:auto">
           ${[['points', 'Punkte'], ['username', 'Name'], ['created', 'Registrierung'], ['seen', 'Zuletzt online'], ['id', 'ID']]
             .map(([k, l]) => `<option value="${k}" ${k === userSort ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+        <select id="role-filter" style="width:auto">
+          ${[['', 'Alle Rollen'], ['admin', 'nur Administratoren'], ['moderator', 'nur Moderatoren'], ['user', 'nur Spieler']]
+            .map(([v, l]) => `<option value="${v}" ${v === userRole ? 'selected' : ''}>${l}</option>`).join('')}
         </select>
         <button class="secondary small" id="do-search">Suchen</button>
         <span class="spacer" style="flex:1"></span>
@@ -119,7 +124,8 @@ async function users(body) {
             ${u.banned ? '<span class="tag banned">gesperrt</span>' : ''}
             ${u.vacation_until > Date.now() ? '<span class="tag vacation">Urlaub</span>' : ''}</td>
           <td class="tiny muted">${esc(u.email)}</td>
-          <td class="tiny ${u.role === 'admin' ? 'warn' : ''}">${u.role}</td>
+          <td class="tiny ${u.role === 'admin' ? 'bad' : u.role === 'moderator' ? 'warn' : ''}">
+            ${u.role === 'admin' ? 'Administrator' : u.role === 'moderator' ? 'Moderator' : 'Spieler'}</td>
           <td>${u.alliance_tag ? `<span class="tag">${esc(u.alliance_tag)}</span>` : ''}</td>
           <td class="right mono">${fmt(u.points)}</td>
           <td class="right mono">${u.planets}</td>
@@ -138,12 +144,14 @@ async function users(body) {
   const search = () => {
     userSearch = document.getElementById('search').value;
     userSort = document.getElementById('sort').value;
+    userRole = document.getElementById('role-filter').value;
     userPage = 0;
     users(body);
   };
   document.getElementById('do-search').addEventListener('click', search);
   document.getElementById('search').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
   document.getElementById('sort').addEventListener('change', search);
+  document.getElementById('role-filter').addEventListener('change', search);
   document.getElementById('prev')?.addEventListener('click', () => { userPage--; users(body); });
   document.getElementById('next')?.addEventListener('click', () => { userPage++; users(body); });
   bindUserLinks(body);
@@ -218,8 +226,13 @@ async function openUser(id) {
         <div class="field"><label>Rolle</label>
           <select id="f-role">
             <option value="user" ${u.role === 'user' ? 'selected' : ''}>Spieler</option>
+            <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator (Chat)</option>
             <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrator</option>
-          </select></div>
+          </select>
+          <p class="tiny muted" style="margin-top:4px">
+            Moderatoren dürfen Chatnachrichten entfernen und Spieler stummschalten,
+            haben aber keinen Zugang zum Adminbereich.
+          </p></div>
         <div class="field"><label>Fraktion</label>
           <select id="f-faction">${catalog.factions.map((f) =>
             `<option value="${f.key}" ${f.key === u.faction ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}

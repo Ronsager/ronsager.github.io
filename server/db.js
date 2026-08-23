@@ -189,6 +189,29 @@ CREATE TABLE IF NOT EXISTS admin_log (
   created_at INTEGER NOT NULL
 );
 
+/* ---------------- Chat ---------------- */
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel     TEXT    NOT NULL DEFAULT 'global',   -- 'global' | 'alliance:<id>'
+  user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  username    TEXT    NOT NULL,                    -- Kopie, damit gelöschte Konten lesbar bleiben
+  text        TEXT    NOT NULL,
+  deleted     INTEGER NOT NULL DEFAULT 0,
+  deleted_by  TEXT,
+  deleted_at  INTEGER,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chat_channel ON chat_messages(channel, id DESC);
+
+/* Stummschaltungen. until = 0 bedeutet unbefristet. */
+CREATE TABLE IF NOT EXISTS chat_mutes (
+  user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  until      INTEGER NOT NULL DEFAULT 0,
+  reason     TEXT    NOT NULL DEFAULT '',
+  by_name    TEXT    NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
+
 /* ---------------- Änderungsprotokoll (Changelog) ---------------- */
 CREATE TABLE IF NOT EXISTS changelog (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,

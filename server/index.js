@@ -15,6 +15,7 @@ import { router as messagesRouter } from './routes/messages.js';
 import { router as allianceRouter } from './routes/alliance.js';
 import { router as highscoreRouter } from './routes/highscore.js';
 import { router as adminRouter } from './routes/admin.js';
+import { router as chatRouter } from './routes/chat.js';
 import { processDueQueues } from './engine/queue.js';
 import { processFleets } from './engine/fleet.js';
 import { recomputeAll } from './engine/stats.js';
@@ -68,6 +69,7 @@ app.use('/api/galaxy', galaxyRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/alliance', allianceRouter);
 app.use('/api/highscore', highscoreRouter);
+app.use('/api/chat', chatRouter);
 app.use('/api/admin', adminRouter);
 
 app.get('/api/health', (req, res) => {
