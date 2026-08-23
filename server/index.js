@@ -4,6 +4,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import path from 'node:path';
+import fs from 'node:fs';
 
 import { config, ROOT, getVersion, getBuild } from './config.js';
 import { db, now, getSetting } from './db.js';
@@ -90,6 +91,34 @@ app.get('/api/health', (req, res) => {
 // – das kostet ein paar Byte und der Browser nutzt weiter seine Kopie.
 // Eine feste Vorhaltezeit ist hier falsch: Nach einem Update zeigte der Browser
 // sonst bis zu einer Stunde lang die alte Fassung, ohne nachzufragen.
+/**
+ * Startseite mit eingetragener Stand-Kennung ausliefern.
+ *
+ * Die Kennung landet als <meta> im Dokument. Das Frontend vergleicht sie mit
+ * der Kennung, die der Server über die Schnittstelle meldet. Weichen beide ab,
+ * führt der Browser noch eine ältere Fassung aus – dann erscheint ein Hinweis
+ * zum Neuladen, statt dass Änderungen unerklärlich ausbleiben.
+ */
+const INDEX_FILE = path.join(ROOT, 'public', 'index.html');
+let indexCache = { mtime: 0, build: '', html: '' };
+
+function renderIndex() {
+  const stat = fs.statSync(INDEX_FILE);
+  if (indexCache.mtime === stat.mtimeMs && indexCache.build === getBuild()) return indexCache.html;
+  const raw = fs.readFileSync(INDEX_FILE, 'utf8');
+  const html = raw.replace(
+    '</head>',
+    `<meta name="stc-build" content="${getBuild()}">\n</head>`
+  );
+  indexCache = { mtime: stat.mtimeMs, build: getBuild(), html };
+  return html;
+}
+
+app.get(['/', '/index.html'], (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(renderIndex());
+});
+
 app.use(
   express.static(path.join(ROOT, 'public'), {
     index: 'index.html',

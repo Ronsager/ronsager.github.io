@@ -66,6 +66,33 @@ function setVersion(version, build) {
   node.title = `Star Trek Conquest ${version}${build ? ' · Stand ' + build : ''}`;
 }
 
+
+/**
+ * Vergleicht den Stand des geladenen Programmcodes mit dem des Servers.
+ * Weichen sie ab, läuft im Browser noch eine ältere Fassung – meist, weil
+ * zwischengespeicherte Dateien verwendet werden. Statt dass Änderungen
+ * unerklärlich ausbleiben, erscheint ein Hinweis zum Neuladen.
+ */
+let standHinweisGezeigt = false;
+function pruefeStand(serverBuild) {
+  if (!serverBuild || standHinweisGezeigt) return;
+  const geladen = document.querySelector('meta[name="stc-build"]')?.content;
+  if (!geladen || geladen === serverBuild) return;
+
+  standHinweisGezeigt = true;
+  const leiste = el(`<div class="stale-banner">
+    <span>Der Browser führt noch eine ältere Fassung aus
+      (<b class="mono">${esc(geladen)}</b>, auf dem Server liegt <b class="mono">${esc(serverBuild)}</b>).
+      Änderungen wirken erst nach dem Neuladen.</span>
+    <button id="stale-reload">Jetzt neu laden</button>
+  </div>`);
+  document.body.appendChild(leiste);
+  leiste.querySelector('#stale-reload').addEventListener('click', () => {
+    // location.reload(true) ist überholt; ein Zeitstempel erzwingt frische Dateien
+    location.href = location.pathname + '?frisch=' + Date.now() + location.hash;
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Fraktionsdesign                                                     */
 /* ------------------------------------------------------------------ */
@@ -337,6 +364,7 @@ export async function refresh(rerender = false) {
     window.__stcUserId = data.user.id;   // für Ansichten, die eigene Beiträge erkennen müssen
     applyFactionTheme(data.user.faction);
     setVersion(data.version, data.build);
+    pruefeStand(data.build);
     renderHeader();
     renderResourceBar();
     renderSidebar();
