@@ -8,7 +8,7 @@ import { recomputeUser, recomputeAll } from '../engine/stats.js';
 import { sendMessage, broadcast } from '../engine/messages.js';
 import { queueView } from '../engine/queue.js';
 import { listEntries, ensureCurrentEntry } from '../engine/changelog.js';
-import { VERSION } from '../config.js';
+import { getVersion, getPackageVersion, setVersionOverride } from '../config.js';
 
 export const router = express.Router();
 router.use(authenticate, requireAdmin);
@@ -503,8 +503,36 @@ router.get('/log', (req, res) => {
 /* Änderungsprotokoll                                                  */
 /* ------------------------------------------------------------------ */
 
+/** Versionsnummer von Hand setzen oder auf den Wert der package.json zurücksetzen. */
+router.post('/version', (req, res) => {
+  const raw = String(req.body?.version ?? '').trim();
+  if (raw && !/^[\w.+-]{1,40}$/.test(raw))
+    return res.status(400).json({ error: 'Erlaubt sind Buchstaben, Ziffern sowie . _ + - (max. 40 Zeichen).' });
+
+  const previous = getVersion();
+  const applied = setVersionOverride(raw);
+  if (raw) setSetting('app_version', applied);
+  else db.prepare("DELETE FROM settings WHERE key = 'app_version'").run();
+
+  // Für die neue Version gleich einen Eintrag anlegen, damit Spieler den
+  // Hinweis auf die Aktualisierung erhalten.
+  ensureCurrentEntry();
+
+  logAdmin(req.user, 'version', `${previous} → ${applied}`, raw ? 'manuell' : 'zurückgesetzt');
+  res.json({
+    ok: true, version: applied, packageVersion: getPackageVersion(),
+    manual: Boolean(raw),
+    entries: listEntries({ includeUnpublished: true, limit: 100 }),
+  });
+});
+
 router.get('/changelog', (req, res) => {
-  res.json({ entries: listEntries({ includeUnpublished: true, limit: 100 }), currentVersion: VERSION });
+  res.json({
+    entries: listEntries({ includeUnpublished: true, limit: 100 }),
+    currentVersion: getVersion(),
+    packageVersion: getPackageVersion(),
+    versionIsManual: getVersion() !== getPackageVersion(),
+  });
 });
 
 /** Eintrag anlegen oder überschreiben (Version dient als Schlüssel). */
@@ -541,9 +569,9 @@ router.delete('/changelog/:id', (req, res) => {
  * Überschreibt einen von Hand bearbeiteten Text – daher nur auf Anforderung.
  */
 router.post('/changelog/regenerate', (req, res) => {
-  db.prepare('DELETE FROM changelog WHERE version = ?').run(VERSION);
+  db.prepare('DELETE FROM changelog WHERE version = ?').run(getVersion());
   const entry = ensureCurrentEntry();
-  logAdmin(req.user, 'changelog_regenerate', VERSION, '');
+  logAdmin(req.user, 'changelog_regenerate', getVersion(), '');
   res.json({ ok: true, entry, entries: listEntries({ includeUnpublished: true, limit: 100 }) });
 });
 

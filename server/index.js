@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import path from 'node:path';
 
-import { config, ROOT, VERSION } from './config.js';
+import { config, ROOT, getVersion } from './config.js';
 import { db, now, getSetting } from './db.js';
 import { router as authRouter, createAccount } from './routes/auth.js';
 import { router as gameRouter } from './routes/game.js';
@@ -73,7 +73,7 @@ app.use('/api/admin', adminRouter);
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
-    version: VERSION,
+    version: getVersion(),
     serverTime: now(),
     users: db.prepare('SELECT COUNT(*) AS c FROM users').get().c,
     planets: db.prepare('SELECT COUNT(*) AS c FROM planets').get().c,
@@ -175,7 +175,7 @@ const server = app.listen(config.port, config.host, () => {
   console.log('  ║   S T A R   T R E K   C O N Q U E S T        ║');
   console.log('  ╚══════════════════════════════════════════════╝');
   console.log(`  Server läuft auf http://${config.host === '0.0.0.0' ? 'localhost' : config.host}:${config.port}`);
-  console.log(`  Version:    ${VERSION}`);
+  console.log(`  Version:    ${getVersion()}`);
   console.log(`  Datenbank:  ${config.dbFile}`);
   console.log(`  Universum:  ${config.universe.quadrants} Quadranten × ${config.universe.systems} Systeme × ${config.universe.slots} Planeten`);
   console.log(`  Tempo:      Wirtschaft ${config.speed.economy}× | Bau ${config.speed.build}× | Flotte ${config.speed.fleet}×`);

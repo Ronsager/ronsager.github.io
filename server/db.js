@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
-import { config } from './config.js';
+import { config, setVersionOverride } from './config.js';
 
 fs.mkdirSync(path.dirname(config.dbFile), { recursive: true });
 
@@ -327,6 +327,12 @@ for (const [key, def] of Object.entries(TUNABLES)) {
     const [group, prop] = def.target;
     config[group][prop] = v;
   }
+}
+
+/** Im Adminbereich gesetzte Versionsnummer beim Start wieder anwenden. */
+{
+  const stored = getSetting('app_version');
+  if (stored) setVersionOverride(stored);
 }
 
 /** Startwerte für Einstellungen einmalig anlegen. */

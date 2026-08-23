@@ -9,7 +9,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { db, now } from '../db.js';
-import { ROOT, VERSION } from '../config.js';
+import { ROOT, getVersion } from '../config.js';
 
 /** Commit-Titel seit dem angegebenen Zeitpunkt, ohne technische Fußzeilen. */
 function commitsSince(sinceTimestamp) {
@@ -32,7 +32,7 @@ function commitsSince(sinceTimestamp) {
 
 /** Sorgt dafür, dass für die laufende Version ein Eintrag existiert. */
 export function ensureCurrentEntry() {
-  const existing = db.prepare('SELECT * FROM changelog WHERE version = ?').get(VERSION);
+  const existing = db.prepare('SELECT * FROM changelog WHERE version = ?').get(getVersion());
   if (existing) return existing;
 
   const previous = db.prepare('SELECT created_at FROM changelog ORDER BY created_at DESC LIMIT 1').get();
@@ -46,9 +46,9 @@ export function ensureCurrentEntry() {
   db.prepare(
     `INSERT INTO changelog (version, title, body, published, auto, created_at, updated_at)
      VALUES (?,?,?,?,1,?,?)`
-  ).run(VERSION, `Version ${VERSION}`, body, 1, t, t);
+  ).run(getVersion(), `Version ${getVersion()}`, body, 1, t, t);
 
-  return db.prepare('SELECT * FROM changelog WHERE version = ?').get(VERSION);
+  return db.prepare('SELECT * FROM changelog WHERE version = ?').get(getVersion());
 }
 
 /** Alle veröffentlichten Einträge, neueste zuerst. */

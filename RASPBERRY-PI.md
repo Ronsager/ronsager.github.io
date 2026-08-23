@@ -615,6 +615,8 @@ ls -lh ~/sicherungen
 
 ---
 
+> **Alle Server-Befehle auf einen Blick:** [BEFEHLE.md](BEFEHLE.md)
+
 ## 11. Wartung und Fehlerbehebung
 
 ### Der Pi taucht nicht in der FRITZ!Box auf

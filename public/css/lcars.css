@@ -34,6 +34,26 @@
   --radius:      4px;
   --pill:        999px;
 
+  /* --- Formensprache ---------------------------------------------------
+     Jede Fraktion überschreibt diese Variablen. Dadurch ändert sich nicht
+     nur die Farbe, sondern die Geometrie der gesamten Oberfläche, ohne dass
+     einzelne Bausteine etwas davon wissen müssen.
+     Wichtig: clip-path beeinflusst auch die Treffprüfung des Browsers.
+     Die Zuschnitte bleiben deshalb klein genug, dass Bedienelemente
+     vollständig anklickbar bleiben. */
+  --shape-btn-radius:   var(--pill);
+  --shape-btn-clip:     none;
+  --shape-nav-radius:   0;
+  --shape-nav-clip:     none;
+  --shape-panel-radius: 0 var(--radius) var(--radius) 0;
+  --shape-card-radius:  var(--radius);
+  --shape-res-radius:   0 var(--pill) var(--pill) 0;
+  --shape-cap-l:        var(--pill) 0 0 var(--pill);
+  --shape-cap-r:        0 var(--pill) var(--pill) 0;
+  --shape-title-radius: 0;
+  --shape-corner:       0px;   /* Größe der Eckabschrägung (dekorativ) */
+  --shape-corner-op:    0;     /* 0 = keine Abschrägung sichtbar */
+
   /* Maße des LCARS-Rahmens */
   --col-w:       190px;   /* Breite der linken Säule */
   --bar-h:       46px;    /* Höhe der Kopf-/Fußleiste */
@@ -100,14 +120,15 @@ a:hover { color: var(--orange); }
 .lcars-cap-l, .lcars-cap-r {
   width: 34px; background: var(--lcars-orange); flex-shrink: 0;
 }
-.lcars-cap-l { border-radius: var(--pill) 0 0 var(--pill); }
-.lcars-cap-r { border-radius: 0 var(--pill) var(--pill) 0; }
+.lcars-cap-l { border-radius: var(--shape-cap-l); }
+.lcars-cap-r { border-radius: var(--shape-cap-r); }
 
 .lcars-title {
   display: flex; align-items: center; padding: 0 18px;
   background: var(--lcars-orange); color: #000;
   font-weight: 700; font-size: 1.05rem; letter-spacing: .14em;
   text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+  border-radius: var(--shape-title-radius);
 }
 
 .lcars-block { width: 46px; flex-shrink: 0; }
@@ -166,7 +187,7 @@ a:hover { color: var(--orange); }
   display: flex; align-items: flex-end; justify-content: flex-end;
   gap: 6px; padding: 0 12px 6px;
   height: 42px; color: #000; background: var(--lcars-tan);
-  border-radius: 0 0 0 0;
+  border-radius: var(--shape-nav-radius); clip-path: var(--shape-nav-clip);
   font-size: .76rem; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; line-height: 1;
   transition: filter .12s;
@@ -227,7 +248,7 @@ main { flex: 1; padding: 10px 14px 30px; min-width: 0; overflow-x: hidden; }
   min-width: 132px; padding: 5px 14px;
   background: var(--bg-panel-2);
   border-left: 8px solid var(--lcars-orange);
-  border-radius: 0 var(--pill) var(--pill) 0;
+  border-radius: var(--shape-res-radius);
 }
 .res.dilithium { border-left-color: var(--lcars-ice); }
 .res.deuterium { border-left-color: var(--lcars-lilac); }
@@ -241,10 +262,22 @@ main { flex: 1; padding: 10px 14px 30px; min-width: 0; overflow-x: hidden; }
 /* ---------------- Panels ---------------- */
 
 .panel {
+  position: relative;
   background: var(--bg-panel); border: 1px solid var(--border);
   border-left: 5px solid var(--lilac);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: var(--shape-panel-radius);
   padding: 14px 16px; margin-bottom: 16px;
+}
+/* Dekorative Eckabschrägung für kantige Fraktionen. Bewusst als
+   Pseudoelement statt als clip-path, damit Bedienelemente in den Ecken
+   anklickbar bleiben. */
+.panel::after {
+  content: ''; position: absolute; right: 0; top: 0;
+  width: var(--shape-corner); height: var(--shape-corner);
+  background: var(--bg);
+  opacity: var(--shape-corner-op);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  pointer-events: none;
 }
 .panel > h2:first-child { margin-top: 0; }
 .panel.accent-orange { border-left-color: var(--orange); }
@@ -275,7 +308,8 @@ main { flex: 1; padding: 10px 14px 30px; min-width: 0; overflow-x: hidden; }
 .card {
   background: var(--bg-panel); border: 1px solid var(--border);
   border-top: 3px solid var(--orange-dim);
-  border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  border-radius: var(--shape-card-radius);
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
 }
 .card.available { border-top-color: var(--green); }
 .card.locked { opacity: 0.55; border-top-color: var(--muted); }
@@ -299,7 +333,8 @@ button, .btn {
   font-family: inherit; font-size: 0.75rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.06em;
   background: var(--orange); color: #000; border: none;
-  border-radius: var(--pill); padding: 7px 16px; cursor: pointer;
+  border-radius: var(--shape-btn-radius); clip-path: var(--shape-btn-clip);
+  padding: 7px 16px; cursor: pointer;
   transition: filter 0.12s, opacity 0.12s;
 }
 button:hover:not(:disabled), .btn:hover { filter: brightness(1.18); }
@@ -617,6 +652,14 @@ td .row-icon { color: var(--sand); }
   --lcars-lilac:  #cc99cc;  --lcars-blue: #9999ff;
   --lcars-salmon: #ff7b6b;  --lcars-ice: #99ccff;
   --text: #ffcc99;
+  /* LCARS-Original: durchgehend gerundete Pillenformen, weiche Kanten. */
+  --shape-btn-radius: var(--pill);
+  --shape-nav-radius: 0 0 0 0;
+  --shape-panel-radius: 0 var(--radius) var(--radius) 0;
+  --shape-card-radius: var(--radius);
+  --shape-res-radius: 0 var(--pill) var(--pill) 0;
+  --shape-title-radius: 0;
+  --shape-corner-op: 0;
 }
 
 /* Klingonisches Imperium – Blutrot auf Schwarz, kantig und martialisch */
@@ -627,6 +670,19 @@ td .row-icon { color: var(--sand); }
   --lcars-green:  #c9a227;
   --text: #f0c9a0;  --muted: #9a7a5a;  --border: #3a1a12;
   --bg-panel: #120806;  --bg-panel-2: #1d0c08;
+  /* Klingonisch: keine Rundungen. Schräge Schnitte wie Klingen, abgeschrägte
+     Ecken an Flächen. Die Schrägen bleiben flach, damit Beschriftungen und
+     Trefferflächen der Knöpfe vollständig erhalten bleiben. */
+  --shape-btn-radius: 0;
+  --shape-btn-clip: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+  --shape-nav-radius: 0;
+  --shape-nav-clip: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  --shape-panel-radius: 0;
+  --shape-card-radius: 0;
+  --shape-res-radius: 0;
+  --shape-cap-l: 0; --shape-cap-r: 0;
+  --shape-title-radius: 0;
+  --shape-corner: 20px; --shape-corner-op: 1;
 }
 
 /* Romulanisches Sternenimperium – Grüntöne der Singularitätstechnik */
@@ -637,6 +693,18 @@ td .row-icon { color: var(--sand); }
   --lcars-green:  #66ffaa;
   --text: #c8f0d8;  --muted: #6f9a84;  --border: #123024;
   --bg-panel: #04120c; --bg-panel-2: #071c13;
+  /* Romulanisch: Sechsecke und Pfeilspitzen – kantig, aber präzise und
+     symmetrisch statt roh wie beim klingonischen Entwurf. */
+  --shape-btn-radius: 2px;
+  --shape-btn-clip: none;
+  --shape-nav-radius: 2px;
+  --shape-nav-clip: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+  --shape-panel-radius: 0 14px 0 14px;
+  --shape-card-radius: 12px 0 12px 0;
+  --shape-res-radius: 0 10px 0 10px;
+  --shape-cap-l: 0; --shape-cap-r: 0;
+  --shape-title-radius: 0 12px 0 0;
+  --shape-corner: 14px; --shape-corner-op: 1;
 }
 
 /* Cardassianische Union – Ockergelb und Braun der Terok-Nor-Konsolen */
@@ -647,6 +715,18 @@ td .row-icon { color: var(--sand); }
   --lcars-green:  #9ab973;
   --text: #ecd9a8;  --muted: #9b8256;  --border: #3a2c16;
   --bg-panel: #120e05; --bg-panel-2: #1c1608;
+  /* Cardassianisch: die lang gezogenen Linsen- und Mandelformen der
+     Konsolen von Terok Nor – starke, ungleiche Rundungen. */
+  --shape-btn-radius: 999px 999px 999px 999px / 60% 60% 60% 60%;
+  --shape-btn-clip: none;
+  --shape-nav-radius: 34px 8px 34px 8px;
+  --shape-panel-radius: 0 36px 36px 0;
+  --shape-card-radius: 26px 8px 26px 8px;
+  --shape-res-radius: 0 30px 30px 0 / 0 70% 70% 0;
+  --shape-cap-l: 100% 0 0 100% / 50% 0 0 50%;
+  --shape-cap-r: 0 100% 100% 0 / 0 50% 50% 0;
+  --shape-title-radius: 0 26px 26px 0 / 0 60% 60% 0;
+  --shape-corner-op: 0;
 }
 
 /* Ferengi-Allianz – Gold und Bernstein, dem Latinum zu Ehren */
@@ -657,6 +737,17 @@ td .row-icon { color: var(--sand); }
   --lcars-green:  #b5cc4a;
   --text: #ffe9b0;  --muted: #a08d55;  --border: #3d3110;
   --bg-panel: #100d03; --bg-panel-2: #1b1606;
+  /* Ferengi: verspielt und ungleichmäßig – gestufte Rundungen, die an
+     ziselierte Goldarbeiten erinnern. */
+  --shape-btn-radius: 3px 15px 3px 15px;
+  --shape-btn-clip: none;
+  --shape-nav-radius: 4px 20px 4px 20px;
+  --shape-panel-radius: 0 20px 6px 0;
+  --shape-card-radius: 4px 18px 4px 18px;
+  --shape-res-radius: 0 18px 4px 0;
+  --shape-cap-l: 14px 0 0 14px; --shape-cap-r: 0 14px 14px 0;
+  --shape-title-radius: 0 14px 0 0;
+  --shape-corner-op: 0;
 }
 
 /* Fraktionswappen auf dem Anmeldeschirm */
@@ -700,12 +791,29 @@ td .row-icon { color: var(--sand); }
     width: auto; height: auto;
     background: var(--bg);
     border-top: 3px solid var(--lcars-orange);
-    padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
+    /* Der untere Bildschirmrand gehört unter iOS der System-Wischgeste
+       (Home-Indikator). Läge die scrollbare Leiste dort, würde jeder Versuch,
+       sie seitlich zu schieben, stattdessen die App wegwischen. Deshalb ein
+       zusätzlicher Abstand nach unten: Die Knöpfe liegen darüber, der Streifen
+       darunter ist unbeweglich und stört die Geste nicht. */
+    padding: 5px 4px calc(env(safe-area-inset-bottom, 0px) + 26px);
   }
   .lcars-column-inner {
     flex-direction: row; flex-wrap: nowrap;
     overflow-x: auto; -webkit-overflow-scrolling: touch;
     scrollbar-width: none; gap: 4px;
+    /* Dem Browser mitteilen, dass hier waagerecht geschoben wird –
+       senkrechtes Wischen bleibt der Seite überlassen. */
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+  }
+  /* Farbiger Abschluss im Geste-Bereich, damit der Abstand gestaltet wirkt
+     statt wie ein Fehler. */
+  .lcars-column::after {
+    content: ''; position: absolute; left: 4px; right: 4px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 7px);
+    height: 5px; border-radius: var(--pill);
+    background: var(--lcars-orange); opacity: .35;
   }
   .lcars-column-inner::-webkit-scrollbar { display: none; }
   .lcars-column-inner .group-label { display: none; }
@@ -717,7 +825,7 @@ td .row-icon { color: var(--sand); }
   .lcars-column-foot { display: none; }
 
   /* Platz für die Leiste am unteren Rand schaffen */
-  .lcars-main { padding-bottom: 66px; }
+  .lcars-main { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); }
   main { padding: 8px 10px 20px; }
 
   /* --- Fußleiste ausblenden: unten sitzt die Navigation --- */
@@ -786,7 +894,7 @@ td .row-icon { color: var(--sand); }
 
   /* --- Dialoge --- */
   .modal { padding: 14px; max-height: 92vh; }
-  #toasts { left: 10px; right: 10px; bottom: 76px; max-width: none; }
+  #toasts { left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 100px); max-width: none; }
 }
 
 /* Sehr schmale Geräte */
@@ -886,3 +994,28 @@ img { max-width: 100%; height: auto; }
   .cl-head { padding: 12px 15px 8px; }
   .cl-actions { padding: 10px 15px 12px; }
 }
+
+/* ---- Fraktionsspezifische Zierelemente ---- */
+
+/* Klingonisch: diagonale Schraffur auf der Kopfleiste, wie geätztes Metall */
+:root[data-faction="klingon"] .lcars-title {
+  background-image: repeating-linear-gradient(
+    -45deg, rgba(0,0,0,.22) 0 3px, transparent 3px 9px);
+}
+:root[data-faction="klingon"] .lcars-column-inner a { border-left: 4px solid rgba(0,0,0,.35); }
+:root[data-faction="klingon"] .panel { border-left-width: 7px; }
+
+/* Romulanisch: dünne Trennlinie unter der Kopfleiste, präzise Anmutung */
+:root[data-faction="romulan"] .lcars-head-bar { position: relative; }
+:root[data-faction="romulan"] .lcars-column-inner a {
+  border-left: 3px solid rgba(0,0,0,.4);
+}
+:root[data-faction="romulan"] .panel { border-left-width: 4px; }
+
+/* Cardassianisch: die Navigationsblöcke laufen nach rechts spitz zu */
+:root[data-faction="cardassian"] .lcars-column-inner a { justify-content: flex-end; }
+:root[data-faction="cardassian"] .panel { border-left-width: 9px; }
+
+/* Ferengi: schmale Goldkante an den Flächen */
+:root[data-faction="ferengi"] .panel { box-shadow: inset 0 0 0 1px rgba(230,180,34,.18); }
+:root[data-faction="ferengi"] .card  { box-shadow: inset 0 0 0 1px rgba(230,180,34,.14); }

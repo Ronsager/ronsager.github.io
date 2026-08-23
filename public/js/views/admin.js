@@ -647,6 +647,31 @@ async function changelog(body) {
   const current = d.entries.find((e) => e.version === d.currentVersion);
 
   body.innerHTML = `
+    <div class="panel accent-green">
+      <h2>Versionsnummer</h2>
+      <p class="small muted">
+        Die Versionsnummer erscheint in der Fußleiste und steuert, wann Spieler den
+        Änderungshinweis sehen. Wird sie geändert, gilt der Stand als neue Fassung und
+        der Hinweis erscheint bei allen erneut. Aus der package.json stammt
+        <span class="mono">${esc(d.packageVersion)}</span>.
+      </p>
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1;min-width:180px">
+          <label>Angezeigte Version</label>
+          <input id="ver-value" value="${esc(d.currentVersion)}" placeholder="z. B. 0.9.1-beta.2">
+        </div>
+        <button id="ver-save" style="align-self:flex-end">Übernehmen</button>
+        <button class="secondary" id="ver-reset" style="align-self:flex-end">Auf package.json zurücksetzen</button>
+      </div>
+      <p class="tiny muted" style="margin-top:6px">
+        ${d.versionIsManual
+          ? '<span class="warn">Derzeit manuell gesetzt.</span> Der Wert überlebt einen Neustart.'
+          : 'Derzeit wird der Wert aus der package.json verwendet.'}
+        Zusätze wie <span class="mono">-beta</span>, <span class="mono">-alpha</span> oder
+        <span class="mono">-rc</span> lösen die Beta-Kennzeichnung aus.
+      </p>
+    </div>
+
     <div class="panel accent-orange">
       <h2>Eintrag bearbeiten</h2>
       <p class="small muted">
@@ -702,6 +727,20 @@ async function changelog(body) {
         </tr>`).join('') || '<tr><td colspan="5" class="muted small">Noch keine Einträge.</td></tr>'}
       </table></div>
     </div>`;
+
+  const saveVersion = async (value) => {
+    try {
+      const r = await api.post('/admin/version', { version: value });
+      toast(`Version ist jetzt ${r.version}.`, 'success');
+      changelog(body);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+  document.getElementById('ver-save').addEventListener('click',
+    () => saveVersion(document.getElementById('ver-value').value));
+  document.getElementById('ver-reset').addEventListener('click', () => {
+    if (!confirm('Versionsnummer wieder aus der package.json übernehmen?')) return;
+    saveVersion('');
+  });
 
   const preview = () => {
     document.querySelector('.cl-preview').innerHTML = renderBody(document.getElementById('cl-body').value);

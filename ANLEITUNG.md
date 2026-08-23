@@ -603,6 +603,8 @@ OGame-Original (30 je Stufe für Metall, Faktor 1,1 pro Stufe usw.).
 
 ---
 
+> **Alle Server-Befehle auf einen Blick:** [BEFEHLE.md](BEFEHLE.md)
+
 ## 11. Fehlerbehebung
 
 **`npm install` bricht bei `better-sqlite3` ab**

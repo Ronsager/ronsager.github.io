@@ -15,7 +15,20 @@ function readVersion() {
     return '0.0.0';
   }
 }
-export const VERSION = readVersion();
+/**
+ * Laufende Version. Die package.json liefert den Ausgangswert; ein im
+ * Adminbereich gesetzter Wert überschreibt ihn und wird in der
+ * Einstellungstabelle gespeichert. Deshalb ein Zugriff über Funktion statt
+ * einer Konstanten – sonst würde eine Änderung erst nach Neustart wirken.
+ */
+const versionState = { current: readVersion(), fromPackage: readVersion() };
+
+export const getVersion = () => versionState.current;
+export const getPackageVersion = () => versionState.fromPackage;
+export function setVersionOverride(v) {
+  versionState.current = String(v || '').trim() || versionState.fromPackage;
+  return versionState.current;
+}
 
 const bool = (v, def) => (v === undefined ? def : /^(1|true|yes|on)$/i.test(String(v)));
 const num = (v, def) => (v === undefined || v === '' ? def : Number(v));
