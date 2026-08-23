@@ -58,7 +58,17 @@ export function toast(message, kind = 'info', ms = 4500) {
 
 export function modal(html) {
   const backdrop = document.getElementById('modal-backdrop');
-  const box = document.getElementById('modal');
+
+  // Das Fenster-Element gegen eine frische Kopie tauschen. Ansichten hängen
+  // ihre Klick-Behandlung an dieses Element; ohne den Austausch bliebe die
+  // Behandlung jedes früheren Aufrufs bestehen, und ein einzelner Klick löste
+  // so oft aus, wie das Fenster zuvor geöffnet worden war – bis der Server die
+  // Anfragen wegen Überlast abwies und Bestätigungsabfragen sich scheinbar
+  // nicht mehr schließen ließen.
+  const stale = document.getElementById('modal');
+  const box = stale.cloneNode(false);
+  stale.replaceWith(box);
+
   box.innerHTML = html;
   backdrop.classList.remove('hidden');
   return box;
@@ -66,7 +76,8 @@ export function modal(html) {
 
 export function closeModal() {
   document.getElementById('modal-backdrop').classList.add('hidden');
-  document.getElementById('modal').innerHTML = '';
+  const box = document.getElementById('modal');
+  if (box) box.innerHTML = '';
 }
 
 document.getElementById('modal-backdrop')?.addEventListener('click', (e) => {

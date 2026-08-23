@@ -269,9 +269,38 @@ async function openUser(id) {
         <button class="danger" id="del-user">Konto löschen</button>
       </div>
       <p class="tiny muted" style="margin-top:8px">
-        Punkte: ${fmt(d.stats.points)} · Registriert ${fmtDate(u.createdAt)} ·
+        Punkte: ${fmt(d.stats.points)} (Rang ${d.stats.rank ?? '–'}) · Registriert ${fmtDate(u.createdAt)} ·
         Zuletzt online ${fmtDate(u.lastSeen)}
         ${d.alliance ? ` · Verband [${esc(d.alliance.tag)}] ${esc(d.alliance.name)} (${d.alliance.rank})` : ''}</p>
+    </div>
+
+    <div class="panel accent-orange">
+      <h2>Punkte und Rang</h2>
+      <p class="small muted">
+        Die Punkte ergeben sich aus Gebäuden, Forschung und Flotte. Eine Anpassung wird als
+        Zuschlag gespeichert und übersteht damit jede Neuberechnung. Der <b>Rang folgt aus der
+        Punktzahl</b> – geben Sie einen Zielrang an, errechnet der Server die dafür nötigen Punkte.
+      </p>
+      <div class="grid cols-3" style="margin-top:10px">
+        <div class="field">
+          <label>Gesamtpunkte</label>
+          <input type="number" id="pts-points" value="${d.stats.points}" min="0">
+        </div>
+        <div class="field">
+          <label>oder Zielrang</label>
+          <input type="number" id="pts-rank" placeholder="derzeit ${d.stats.rank ?? '–'}" min="1">
+        </div>
+        <div class="field">
+          <label>Derzeitiger Zuschlag</label>
+          <input value="${d.stats.bonus}" disabled>
+        </div>
+      </div>
+      <div class="row">
+        <button id="pts-save">Übernehmen</button>
+        <button class="secondary" id="pts-reset">Zuschlag entfernen</button>
+        <span class="spacer" style="flex:1"></span>
+        <span class="small muted">Berechnet: Wirtschaft ${fmt(d.stats.eco)} · Forschung ${fmt(d.stats.res)} · Militär ${fmt(d.stats.mil)}</span>
+      </div>
     </div>
 
     <div class="panel accent-green">
@@ -367,6 +396,24 @@ async function openUser(id) {
       closeModal();
       render(document.getElementById('view'), {});
     } catch (err) { toast(err.message, 'error'); }
+  });
+
+  const punkteSpeichern = async (payload) => {
+    try {
+      const r = await api.post(`/admin/users/${id}/points`, payload);
+      toast(`Punkte: ${fmt(r.points)} · Rang ${r.rank}${r.bonus ? ` (Zuschlag ${fmt(r.bonus)})` : ''}`, 'success');
+      closeModal(); openUser(id);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  box.querySelector('#pts-save').addEventListener('click', () => {
+    const rang = box.querySelector('#pts-rank').value;
+    // Ein angegebener Zielrang hat Vorrang vor der Punktzahl
+    punkteSpeichern(rang ? { rank: Number(rang) } : { points: Number(box.querySelector('#pts-points').value) });
+  });
+  box.querySelector('#pts-reset').addEventListener('click', () => {
+    if (!confirm('Den Zuschlag entfernen? Die Punkte werden dann wieder allein aus dem Besitz berechnet.')) return;
+    punkteSpeichern({ reset: true });
   });
 
   box.querySelector('#save-research').addEventListener('click', async () => {

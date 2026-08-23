@@ -246,6 +246,7 @@ function addColumnIfMissing(table, column, definition) {
 
 addColumnIfMissing('users', 'tutorial_seen', 'INTEGER NOT NULL DEFAULT 0');
 addColumnIfMissing('users', 'changelog_seen', "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing('stats', 'points_bonus', 'REAL NOT NULL DEFAULT 0');
 
 /* ------------------------------------------------------------------ */
 /* Hilfsfunktionen                                                     */

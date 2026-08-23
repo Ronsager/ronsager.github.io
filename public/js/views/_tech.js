@@ -84,8 +84,9 @@ function cardHtml(item, kind, resources, activeKeys) {
     ${req}
     <div class="actions">
       ${amountInput}
-      <button data-build="${esc(item.key)}" ${locked ? 'disabled' : ''}>
-        ${isUnit ? 'Bauen' : item.level > 0 ? 'Ausbauen' : 'Errichten'}
+      <button data-build="${esc(item.key)}" ${locked || (!isUnit && active) ? 'disabled' : ''}
+              ${!isUnit && active ? 'title="Diese Stufe wird gerade gebaut"' : ''}>
+        ${!isUnit && active ? 'Im Bau …' : isUnit ? 'Bauen' : item.level > 0 ? 'Ausbauen' : 'Errichten'}
       </button>
       ${demolish}
     </div>

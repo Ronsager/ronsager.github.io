@@ -225,6 +225,24 @@ router.post('/build', (req, res) => {
 
   if (kind === 'building' || kind === 'research') {
     count = 1;
+
+    // Nur eine Stufe je Gebäude beziehungsweise Technologie gleichzeitig.
+    // Ohne diese Prüfung ließen sich mehrere Stufen desselben Objekts stapeln,
+    // was den Ausbau unübersichtlich macht und Rohstoffe bindet.
+    const laufend = db
+      .prepare(
+        `SELECT target_level FROM build_queue WHERE kind = ? AND item_key = ? AND ` +
+        (kind === 'research' ? 'user_id = ?' : 'planet_id = ?')
+      )
+      .get(kind, key, kind === 'research' ? req.user.id : planet.id);
+    if (laufend) {
+      return res.status(400).json({
+        error: `${def.name} wird bereits auf Stufe ${laufend.target_level} ausgebaut. ` +
+               'Die nächste Stufe lässt sich erst danach in Auftrag geben.',
+        alreadyQueued: true,
+      });
+    }
+
     const currentLevel = kind === 'building' ? buildings[key] || 0 : research[key] || 0;
     const queuedMax = db
       .prepare(

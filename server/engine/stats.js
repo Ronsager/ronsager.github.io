@@ -46,8 +46,13 @@ export function recomputeUser(userId) {
   }
 
   const rest = computePoints({ research, ships, defenses });
+
+  // Ein im Adminbereich gesetzter Zuschlag bleibt bei jeder Neuberechnung
+  // erhalten – sonst würde er beim nächsten Durchlauf überschrieben.
+  const bonus = db.prepare('SELECT points_bonus FROM stats WHERE user_id = ?').get(userId)?.points_bonus || 0;
+
   const next = {
-    points: eco + rest.res_points + rest.mil_points,
+    points: eco + rest.res_points + rest.mil_points + bonus,
     eco_points: eco,
     res_points: rest.res_points,
     mil_points: rest.mil_points,
@@ -112,4 +117,55 @@ export function userRank(userId, type = 'points') {
     )
     .get(userId);
   return row?.rank ?? null;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Manuelle Anpassung durch Administratoren                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Setzt die angezeigten Gesamtpunkte eines Spielers.
+ *
+ * Die Punkte ergeben sich normalerweise aus Gebäuden, Forschung und Flotte.
+ * Damit eine Anpassung die nächste Neuberechnung übersteht, wird nicht der
+ * Punktestand selbst gespeichert, sondern die Differenz als Zuschlag.
+ */
+export function setPoints(userId, zielPunkte) {
+  const row = db.prepare('SELECT points, points_bonus FROM stats WHERE user_id = ?').get(userId);
+  if (!row) {
+    db.prepare('INSERT INTO stats (user_id, points, points_bonus, updated_at) VALUES (?,?,?,?)')
+      .run(userId, Number(zielPunkte) || 0, Number(zielPunkte) || 0, now());
+    return { bonus: Number(zielPunkte) || 0, points: Number(zielPunkte) || 0 };
+  }
+  const berechnet = row.points - (row.points_bonus || 0);   // Punkte ohne Zuschlag
+  const bonus = Number(zielPunkte) - berechnet;
+  db.prepare('UPDATE stats SET points_bonus = ? WHERE user_id = ?').run(bonus, userId);
+  const nachher = recomputeUser(userId);
+  return { bonus, berechnet, points: nachher.points };
+}
+
+/** Hebt einen gesetzten Zuschlag wieder auf. */
+export function clearPointsBonus(userId) {
+  db.prepare('UPDATE stats SET points_bonus = 0 WHERE user_id = ?').run(userId);
+  return recomputeUser(userId);
+}
+
+/**
+ * Ermittelt die Punktzahl, die nötig ist, um einen bestimmten Rang zu belegen.
+ * Gerechnet wird knapp über dem derzeitigen Inhaber dieses Platzes.
+ */
+export function pointsForRank(userId, zielRang) {
+  const liste = db
+    .prepare('SELECT user_id, points FROM stats WHERE user_id != ? ORDER BY points DESC')
+    .all(userId);
+  const rang = Math.max(1, Math.floor(zielRang));
+
+  if (rang === 1) return (liste[0]?.points || 0) + 1;
+  const davor = liste[rang - 2];        // Spieler, der künftig direkt darüber steht
+  const danach = liste[rang - 1];       // Spieler, der künftig direkt darunter steht
+  if (!davor) return (liste[liste.length - 1]?.points || 0) + 1;
+  if (!danach) return Math.max(0, davor.points - 1);
+  // Genau zwischen beide legen; bei gleichen Werten knapp darunter
+  return davor.points > danach.points ? (davor.points + danach.points) / 2 : Math.max(0, danach.points - 1);
 }

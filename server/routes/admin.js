@@ -4,7 +4,7 @@ import { config } from '../config.js';
 import { BUILDINGS, RESEARCH, SHIPS, DEFENSES, FACTIONS, RESOURCES, MISSIONS } from '../gamedata.js';
 import { authenticate, requireAdmin, hashPassword, ROLES } from '../auth.js';
 import { tickPlanet, createPlanet, findHomeworldSlot, planetSnapshot, addDebris } from '../engine/planet.js';
-import { recomputeUser, recomputeAll } from '../engine/stats.js';
+import { recomputeUser, recomputeAll, setPoints, clearPointsBonus, pointsForRank, userRank } from '../engine/stats.js';
 import { sendMessage, broadcast } from '../engine/messages.js';
 import { queueView } from '../engine/queue.js';
 import { listEntries, ensureCurrentEntry } from '../engine/changelog.js';
@@ -132,6 +132,7 @@ router.get('/users/:id', (req, res) => {
     stats: {
       points: Math.floor(stats.points || 0), eco: Math.floor(stats.eco_points || 0),
       res: Math.floor(stats.res_points || 0), mil: Math.floor(stats.mil_points || 0),
+      bonus: Math.round(stats.points_bonus || 0), rank: userRank(id),
     },
     alliance: alliance || null,
     research: getResearch(id),
@@ -303,6 +304,46 @@ router.post('/planets/:id/units', (req, res) => {
   logAdmin(req.user, 'units', `Planet ${id}`, `${kind}.${key} = ${value}`);
   recomputeUser(planet.user_id);
   res.json({ ok: true, planet: planetSnapshot(id) });
+});
+
+/**
+ * Gesamtpunkte oder Rang eines Spielers anpassen.
+ *
+ * Der Rang ergibt sich aus der Punktzahl – er lässt sich nicht unabhängig
+ * davon festlegen, ohne die Rangliste widersprüchlich zu machen. Wird ein
+ * Zielrang angegeben, errechnet der Server die dafür nötige Punktzahl.
+ */
+router.post('/users/:id/points', (req, res) => {
+  const id = Number(req.params.id);
+  const user = db.prepare('SELECT username FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden.' });
+
+  const b = req.body || {};
+  let ziel;
+
+  if (b.reset) {
+    const nachher = clearPointsBonus(id);
+    logAdmin(req.user, 'points_reset', user.username, '');
+    return res.json({ ok: true, points: Math.floor(nachher.points), rank: userRank(id), bonus: 0 });
+  }
+
+  if (b.rank !== undefined && b.rank !== '') {
+    const rang = Math.max(1, Math.floor(Number(b.rank) || 1));
+    ziel = pointsForRank(id, rang);
+  } else if (b.points !== undefined && b.points !== '') {
+    ziel = Number(b.points);
+  } else {
+    return res.status(400).json({ error: 'Es wurde weder eine Punktzahl noch ein Rang angegeben.' });
+  }
+
+  if (!Number.isFinite(ziel) || ziel < 0 || ziel > 1e12)
+    return res.status(400).json({ error: 'Ungültiger Wert. Zulässig sind 0 bis 1.000.000.000.000 Punkte.' });
+
+  const r = setPoints(id, ziel);
+  const rang = userRank(id);
+  logAdmin(req.user, 'points', user.username,
+    `Ziel ${Math.floor(ziel)} (Zuschlag ${Math.round(r.bonus)}) → Rang ${rang}`);
+  res.json({ ok: true, points: Math.floor(r.points), rank: rang, bonus: Math.round(r.bonus) });
 });
 
 router.post('/users/:id/research', (req, res) => {
