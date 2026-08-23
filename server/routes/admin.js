@@ -132,7 +132,10 @@ router.get('/users/:id', (req, res) => {
     stats: {
       points: Math.floor(stats.points || 0), eco: Math.floor(stats.eco_points || 0),
       res: Math.floor(stats.res_points || 0), mil: Math.floor(stats.mil_points || 0),
-      bonus: Math.round(stats.points_bonus || 0), rank: userRank(id),
+      rank: userRank(id),
+      // Punkte, die sich allein aus Gebäuden, Forschung und Flotte ergeben
+      computed: Math.floor((stats.points || 0) - (stats.points_bonus || 0)),
+      manual: Math.abs(stats.points_bonus || 0) > 0.5,
     },
     alliance: alliance || null,
     research: getResearch(id),

@@ -276,31 +276,37 @@ async function openUser(id) {
 
     <div class="panel accent-orange">
       <h2>Punkte und Rang</h2>
-      <p class="small muted">
-        Die Punkte ergeben sich aus Gebäuden, Forschung und Flotte. Eine Anpassung wird als
-        Zuschlag gespeichert und übersteht damit jede Neuberechnung. Der <b>Rang folgt aus der
-        Punktzahl</b> – geben Sie einen Zielrang an, errechnet der Server die dafür nötigen Punkte.
+      <p class="small">
+        Aus dem Besitz berechnet: <b class="mono">${fmt(d.stats.computed)}</b> Punkte
+        ${d.stats.manual
+          ? `· derzeit manuell auf <b class="mono warn">${fmt(d.stats.points)}</b> gesetzt`
+          : '· keine manuelle Anpassung'}
       </p>
-      <div class="grid cols-3" style="margin-top:10px">
-        <div class="field">
-          <label>Gesamtpunkte</label>
-          <input type="number" id="pts-points" value="${d.stats.points}" min="0">
+      <p class="tiny muted">
+        Der Rang ergibt sich aus der Punktzahl. Setzen Sie einen Rang, errechnet der Server
+        die passende Punktzahl dafür. Eine Anpassung bleibt bei künftigen Neuberechnungen erhalten.
+      </p>
+
+      <div class="grid cols-2" style="margin-top:12px">
+        <div>
+          <label for="pts-points">Gesamtpunkte</label>
+          <div class="row" style="gap:8px">
+            <input type="number" id="pts-points" value="${d.stats.points}" min="0" style="flex:1">
+            <button id="pts-save-points">Setzen</button>
+          </div>
         </div>
-        <div class="field">
-          <label>oder Zielrang</label>
-          <input type="number" id="pts-rank" placeholder="derzeit ${d.stats.rank ?? '–'}" min="1">
-        </div>
-        <div class="field">
-          <label>Derzeitiger Zuschlag</label>
-          <input value="${d.stats.bonus}" disabled>
+        <div>
+          <label for="pts-rank">Rang</label>
+          <div class="row" style="gap:8px">
+            <input type="number" id="pts-rank" value="${d.stats.rank ?? 1}" min="1" style="flex:1">
+            <button id="pts-save-rank">Setzen</button>
+          </div>
         </div>
       </div>
-      <div class="row">
-        <button id="pts-save">Übernehmen</button>
-        <button class="secondary" id="pts-reset">Zuschlag entfernen</button>
-        <span class="spacer" style="flex:1"></span>
-        <span class="small muted">Berechnet: Wirtschaft ${fmt(d.stats.eco)} · Forschung ${fmt(d.stats.res)} · Militär ${fmt(d.stats.mil)}</span>
-      </div>
+
+      ${d.stats.manual ? `<div class="row" style="margin-top:10px">
+        <button class="secondary" id="pts-reset">Anpassung entfernen und neu berechnen</button>
+      </div>` : ''}
     </div>
 
     <div class="panel accent-green">
@@ -398,22 +404,24 @@ async function openUser(id) {
     } catch (err) { toast(err.message, 'error'); }
   });
 
-  const punkteSpeichern = async (payload) => {
+  const punkteSpeichern = async (payload, hinweis) => {
     try {
       const r = await api.post(`/admin/users/${id}/points`, payload);
-      toast(`Punkte: ${fmt(r.points)} · Rang ${r.rank}${r.bonus ? ` (Zuschlag ${fmt(r.bonus)})` : ''}`, 'success');
+      toast(`${hinweis}: ${fmt(r.points)} Punkte, Rang ${r.rank}`, 'success');
       closeModal(); openUser(id);
     } catch (err) { toast(err.message, 'error'); }
   };
 
-  box.querySelector('#pts-save').addEventListener('click', () => {
-    const rang = box.querySelector('#pts-rank').value;
-    // Ein angegebener Zielrang hat Vorrang vor der Punktzahl
-    punkteSpeichern(rang ? { rank: Number(rang) } : { points: Number(box.querySelector('#pts-points').value) });
-  });
-  box.querySelector('#pts-reset').addEventListener('click', () => {
-    if (!confirm('Den Zuschlag entfernen? Die Punkte werden dann wieder allein aus dem Besitz berechnet.')) return;
-    punkteSpeichern({ reset: true });
+  // Zwei getrennte Knöpfe – so ist immer eindeutig, welcher Wert gilt.
+  box.querySelector('#pts-save-points').addEventListener('click', () =>
+    punkteSpeichern({ points: Number(box.querySelector('#pts-points').value) }, 'Punkte gesetzt'));
+
+  box.querySelector('#pts-save-rank').addEventListener('click', () =>
+    punkteSpeichern({ rank: Number(box.querySelector('#pts-rank').value) }, 'Rang gesetzt'));
+
+  box.querySelector('#pts-reset')?.addEventListener('click', () => {
+    if (!confirm('Die manuelle Anpassung entfernen? Die Punkte werden dann wieder allein aus dem Besitz berechnet.')) return;
+    punkteSpeichern({ reset: true }, 'Zurückgesetzt');
   });
 
   box.querySelector('#save-research').addEventListener('click', async () => {
