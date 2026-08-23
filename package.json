@@ -1,6 +1,6 @@
 {
   "name": "star-trek-conquest",
-  "version": "1.0.0",
+  "version": "0.9.0-beta.1",
   "description": "Star Trek Conquest - ein browserbasiertes Weltraum-Strategiespiel im Stil von OGame (Multiplayer, Datenbank, Adminbereich)",
   "type": "module",
   "main": "server/index.js",
@@ -13,7 +13,13 @@
     "seed": "node scripts/seed.js",
     "reset": "node scripts/reset.js"
   },
-  "keywords": ["ogame", "star-trek", "browsergame", "strategy", "multiplayer"],
+  "keywords": [
+    "ogame",
+    "star-trek",
+    "browsergame",
+    "strategy",
+    "multiplayer"
+  ],
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,6 +1,7 @@
 import { api, auth, ApiError } from './api.js';
 import { fmt, fmtShort, fmtDuration, esc, el, toast, closeModal } from './util.js';
 import { startTutorial } from './tutorial.js';
+import { factionCrest } from './icons.js';
 
 import * as overview from './views/overview.js';
 import * as buildings from './views/buildings.js';
@@ -49,6 +50,18 @@ export const viewParam = () => location.hash.replace('#', '').split('/').slice(1
 export const serverNow = () => Date.now() + state.serverOffset;
 
 
+
+/** Versionsangabe in der Fußleiste. Vorabfassungen werden als BETA gekennzeichnet. */
+function setVersion(version) {
+  const node = document.getElementById('version-info');
+  if (!node || !version) return;
+  const isPre = /-(alpha|beta|rc)/i.test(version);
+  node.innerHTML = isPre
+    ? `<span class="ver-tag">Beta</span> v${esc(version)}`
+    : `v${esc(version)}`;
+  node.title = `Star Trek Conquest ${version}`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Fraktionsdesign                                                     */
 /* ------------------------------------------------------------------ */
@@ -56,7 +69,10 @@ export const serverNow = () => Date.now() + state.serverOffset;
 /** Färbt die gesamte Oberfläche im Stil der Fraktion. */
 export function applyFactionTheme(faction) {
   const known = ['federation', 'klingon', 'romulan', 'cardassian', 'ferengi'];
-  document.documentElement.dataset.faction = known.includes(faction) ? faction : 'federation';
+  const key = known.includes(faction) ? faction : 'federation';
+  document.documentElement.dataset.faction = key;
+  const crest = document.getElementById('auth-crest');
+  if (crest) crest.innerHTML = factionCrest(key, 76);
 }
 
 /* ------------------------------------------------------------------ */
@@ -84,6 +100,11 @@ async function initAuthScreen() {
   try {
     const cfg = await api.get('/auth/config');
     document.getElementById('motd').textContent = cfg.motd || '';
+    if (cfg.version) {
+      const pre = /-(alpha|beta|rc)/i.test(cfg.version);
+      document.getElementById('auth-version').innerHTML =
+        (pre ? '<span class="ver-tag">Beta</span> ' : '') + 'Version ' + esc(cfg.version);
+    }
     document.getElementById('faction-picker').innerHTML = cfg.factions
       .map(
         (f) => `<label class="faction-option">
@@ -309,6 +330,7 @@ export async function refresh(rerender = false) {
     state.planetId = data.planet.id;
     state.serverOffset = data.serverTime - Date.now();
     applyFactionTheme(data.user.faction);
+    setVersion(data.version);
     renderHeader();
     renderResourceBar();
     renderSidebar();

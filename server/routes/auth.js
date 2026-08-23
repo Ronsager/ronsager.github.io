@@ -1,7 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { db, now, getSetting, logAdmin } from '../db.js';
-import { config } from '../config.js';
+import { config, VERSION } from '../config.js';
 import { FACTIONS, DEFAULT_FACTION } from '../gamedata.js';
 import { createPlanet, findHomeworldSlot } from '../engine/planet.js';
 import { recomputeUser } from '../engine/stats.js';
@@ -76,6 +76,7 @@ const publicUser = (u) => ({
 
 router.get('/config', (req, res) => {
   res.json({
+    version: VERSION,
     registrationOpen: getSetting('registration_open', '1') === '1',
     motd: getSetting('motd', ''),
     factions: Object.entries(FACTIONS).map(([key, f]) => ({ key, ...f })),

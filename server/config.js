@@ -2,8 +2,20 @@ import 'dotenv/config';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import fs from 'node:fs';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, '..');
+
+/** Version aus der package.json – wird in der Fußleiste angezeigt. */
+function readVersion() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+export const VERSION = readVersion();
 
 const bool = (v, def) => (v === undefined ? def : /^(1|true|yes|on)$/i.test(String(v)));
 const num = (v, def) => (v === undefined || v === '' ? def : Number(v));

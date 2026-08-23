@@ -356,71 +356,49 @@ const DEFENSE_ART = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Planetenscheiben                                                    */
+/* Planeten – echte Bilddateien                                        */
 /* ------------------------------------------------------------------ */
 
-const PLANET_COLORS = {
-  M: { base: '#2f7d5c', land: '#3f9e6e', sea: '#1d5f8a', halo: '#6fe0b0' }, // erdähnlich
-  L: { base: '#6b6b3a', land: '#8a8a4a', sea: '#4a4a28', halo: '#c9c97a' }, // karg
-  K: { base: '#9c6b3a', land: '#c08a4a', sea: '#704a28', halo: '#e0b070' }, // adaptierbar
-  H: { base: '#a84a2a', land: '#d0703a', sea: '#7a3018', halo: '#ff9c5a' }, // Wüste, heiß
-  P: { base: '#8fb8d8', land: '#d8ecf8', sea: '#5f8fb8', halo: '#d0f0ff' }, // Gletscher
-  D: { base: '#5a5a62', land: '#7a7a84', sea: '#3a3a42', halo: '#9a9aa8' }, // Planetoid
-};
+/**
+ * Die Planeten liegen als gerenderte PNG-Dateien unter /img/planets/.
+ * Erzeugt werden sie von scripts/generate-assets.mjs aus fraktalem Rauschen
+ * (Kontinente, Wolkenbänder, Polkappen, Tag-Nacht-Grenze).
+ *
+ * Je Klasse gibt es drei Varianten; welche ein Planet bekommt, wird stabil
+ * aus seinem Namen bzw. seinen Koordinaten abgeleitet – derselbe Planet sieht
+ * damit immer gleich aus.
+ */
+const PLANET_VARIANTS = 3;
 
-/** Einfacher, stabiler Zufallswert aus einer Zeichenkette. */
-function seeded(seed) {
+function seedNumber(seed) {
   let h = 2166136261;
-  for (let i = 0; i < String(seed).length; i++) {
-    h ^= String(seed).charCodeAt(i);
+  const str = String(seed);
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return () => {
-    h = Math.imul(h ^ (h >>> 15), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    return ((h ^= h >>> 16) >>> 0) / 4294967296;
-  };
+  return Math.abs(h);
 }
 
-/**
- * Zeichnet einen Planeten als Scheibe. Oberflächenmerkmale werden aus dem
- * Seed abgeleitet, damit derselbe Planet immer gleich aussieht.
- */
+/** Dateipfad des Planetenbildes. */
+export function planetImage(type = 'M', seed = 'planet') {
+  const cls = String(type || 'M').toLowerCase();
+  const variant = (seedNumber(seed) % PLANET_VARIANTS) + 1;
+  return `/img/planets/${cls}-${variant}.png`;
+}
+
+/** Planet als Bild. Ersetzt die frühere gezeichnete Scheibe. */
 export function planetDisc(type = 'M', seed = 'planet', size = 120) {
-  const c = PLANET_COLORS[type] || PLANET_COLORS.M;
-  const rnd = seeded(seed);
-  const id = 'p' + Math.abs([...String(seed)].reduce((a, ch) => a + ch.charCodeAt(0), 0));
+  return `<img class="planet-disc" width="${size}" height="${size}" loading="lazy"
+    src="${planetImage(type, seed)}" alt="Planet der Klasse ${String(type).toUpperCase()}">`;
+}
 
-  let features = '';
-  const count = 4 + Math.floor(rnd() * 4);
-  for (let i = 0; i < count; i++) {
-    const angle = rnd() * Math.PI * 2;
-    const dist = rnd() * 22;
-    const cx = 32 + Math.cos(angle) * dist;
-    const cy = 32 + Math.sin(angle) * dist;
-    const rx = 5 + rnd() * 11;
-    const ry = 3 + rnd() * 7;
-    const fill = rnd() > 0.45 ? c.land : c.sea;
-    features += `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
-                   fill="${fill}" opacity="${(0.5 + rnd() * 0.4).toFixed(2)}"
-                   transform="rotate(${(rnd() * 180).toFixed(0)} ${cx.toFixed(1)} ${cy.toFixed(1)})"/>`;
-  }
-
-  return `<svg viewBox="0 0 64 64" class="planet-disc" width="${size}" height="${size}" aria-hidden="true">
-    <defs>
-      <radialGradient id="${id}light" cx="35%" cy="30%" r="75%">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity=".35"/>
-        <stop offset="55%" stop-color="#ffffff" stop-opacity="0"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity=".55"/>
-      </radialGradient>
-      <clipPath id="${id}clip"><circle cx="32" cy="32" r="26"/></clipPath>
-    </defs>
-    <circle cx="32" cy="32" r="29" fill="${c.halo}" opacity=".13"/>
-    <circle cx="32" cy="32" r="26" fill="${c.base}"/>
-    <g clip-path="url(#${id}clip)">${features}</g>
-    <circle cx="32" cy="32" r="26" fill="url(#${id}light)"/>
-    <circle cx="32" cy="32" r="26" fill="none" stroke="${c.halo}" stroke-width="1.2" opacity=".6"/>
-  </svg>`;
+/** Fraktionswappen als Bild. */
+export function factionCrest(faction = 'federation', size = 76) {
+  const known = ['federation', 'klingon', 'romulan', 'cardassian', 'ferengi'];
+  const key = known.includes(faction) ? faction : 'federation';
+  return `<img class="faction-crest" width="${size}" height="${size}" loading="lazy"
+    src="/img/crests/${key}.png" alt="">`;
 }
 
 /* ------------------------------------------------------------------ */

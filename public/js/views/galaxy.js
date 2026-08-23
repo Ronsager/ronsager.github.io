@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { fmt, esc, toast, modal, closeModal } from '../util.js';
+import { planetImage } from '../icons.js';
 
 let current = { q: 1, s: 1 };
 
@@ -43,8 +44,16 @@ async function load(container, ctx) {
 
     return `<tr class="galaxy-row ${p.isOwn ? 'own' : ''}">
       <td class="mono">${slot.position}</td>
-      <td><span class="planet-name">${esc(p.name)}</span>
-        <div class="tiny muted">${esc(p.typeName)} · ${p.temp.min}…${p.temp.max} °C</div></td>
+      <td>
+        <div class="galaxy-planet">
+          <img class="galaxy-thumb" src="${planetImage(p.type, p.name + coords)}" width="34" height="34"
+               loading="lazy" alt="">
+          <div>
+            <span class="planet-name">${esc(p.name)}</span>
+            <div class="tiny muted">${esc(p.typeName)} · ${p.temp.min}…${p.temp.max} °C</div>
+          </div>
+        </div>
+      </td>
       <td><a href="#" data-player="${o.id}">${esc(o.username)}</a> ${tags}
         <div class="tiny muted">${fmt(o.points)} Punkte</div></td>
       <td>${o.alliance ? `<span class="tag">${esc(o.alliance.tag)}</span>` : ''}</td>
