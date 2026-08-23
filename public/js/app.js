@@ -2,6 +2,7 @@ import { api, auth, ApiError } from './api.js';
 import { fmt, fmtShort, fmtDuration, esc, el, toast, closeModal } from './util.js';
 import { startTutorial } from './tutorial.js';
 import { factionCrest } from './icons.js';
+import { showChangelogPopup } from './changelog.js';
 
 import * as overview from './views/overview.js';
 import * as buildings from './views/buildings.js';
@@ -391,8 +392,13 @@ async function start() {
   if (!location.hash) location.hash = 'overview';
   await renderView();
 
-  // Einführung für Konten, die sie noch nicht gesehen haben
-  if (state.data && state.data.tutorialSeen === false) startTutorial();
+  // Einführung für Konten, die sie noch nicht gesehen haben.
+  // Das Änderungsprotokoll erscheint erst danach, damit sich beide nicht überlagern.
+  if (state.data && state.data.tutorialSeen === false) {
+    startTutorial(() => showChangelogPopup(state.data?.changelog));
+  } else if (state.data?.changelog) {
+    showChangelogPopup(state.data.changelog);
+  }
 }
 
 // Regelmäßige Aktualisierung des Zustands (Multiplayer: Flottenankünfte, Nachrichten)

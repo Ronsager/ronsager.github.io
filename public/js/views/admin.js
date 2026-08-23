@@ -1,9 +1,10 @@
 import { api } from '../api.js';
 import { fmt, fmtShort, fmtDate, fmtCoords, esc, toast, modal, closeModal } from '../util.js';
+import { renderBody } from '../changelog.js';
 
 const TABS = [
   ['dashboard', 'Lagezentrum'], ['users', 'Benutzer'], ['fleets', 'Flotten'],
-  ['broadcast', 'Rundspruch'], ['settings', 'Server'], ['log', 'Protokoll'],
+  ['broadcast', 'Rundspruch'], ['changelog', 'Changelog'], ['settings', 'Server'], ['log', 'Protokoll'],
 ];
 
 let tab = 'dashboard';
@@ -27,7 +28,7 @@ export async function render(container, ctx) {
   );
 
   const body = document.getElementById('admin-body');
-  const views = { dashboard, users, fleets, broadcast, settings, log };
+  const views = { dashboard, users, fleets, broadcast, changelog, settings, log };
   await views[tab](body, ctx);
 }
 
@@ -632,6 +633,128 @@ async function renderTunables() {
     } catch (err) {
       toast(err.message, 'error');
       e.target.disabled = false;
+    }
+  });
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Änderungsprotokoll verwalten                                        */
+/* ------------------------------------------------------------------ */
+
+async function changelog(body) {
+  const d = await api.get('/admin/changelog');
+  const current = d.entries.find((e) => e.version === d.currentVersion);
+
+  body.innerHTML = `
+    <div class="panel accent-orange">
+      <h2>Eintrag bearbeiten</h2>
+      <p class="small muted">
+        Für die laufende Version wird beim Serverstart automatisch ein Eintrag aus den
+        Git-Commits erzeugt. Sobald Sie ihn hier speichern, gilt er als von Hand gepflegt
+        und wird nicht mehr überschrieben. Spieler sehen den neuesten veröffentlichten
+        Eintrag einmalig nach dem nächsten Seitenaufruf.
+      </p>
+      <div class="grid cols-2" style="margin-top:10px">
+        <div class="field">
+          <label>Version</label>
+          <input id="cl-version" value="${esc(current?.version || d.currentVersion)}">
+        </div>
+        <div class="field">
+          <label>Überschrift</label>
+          <input id="cl-title" value="${esc(current?.title || 'Version ' + d.currentVersion)}">
+        </div>
+      </div>
+      <div class="field">
+        <label>Text — eine Zeile je Änderung, mit «- » beginnend ergibt eine Liste</label>
+        <textarea id="cl-body" rows="12">${esc(current?.body || '')}</textarea>
+      </div>
+      <div class="row">
+        <label class="row" style="margin:0">
+          <input type="checkbox" id="cl-published" style="width:auto" ${current?.published !== false ? 'checked' : ''}>
+          veröffentlicht (für Spieler sichtbar)
+        </label>
+        <span class="spacer" style="flex:1"></span>
+        <button class="secondary" id="cl-reshow">Allen Spielern erneut anzeigen</button>
+        <button class="secondary" id="cl-regen">Aus Git neu erzeugen</button>
+        <button id="cl-save">Speichern</button>
+      </div>
+      <div id="cl-preview-box" style="margin-top:14px">
+        <h3>Vorschau</h3>
+        <div class="cl-preview">${renderBody(current?.body || '')}</div>
+      </div>
+    </div>
+
+    <div class="panel accent-blue">
+      <h2>Alle Einträge (${d.entries.length})</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Version</th><th>Überschrift</th><th>Zuletzt geändert</th><th>Status</th><th></th></tr>
+        ${d.entries.map((e) => `<tr>
+          <td class="mono">${esc(e.version)}${e.version === d.currentVersion ? ' <span class="tag">aktuell</span>' : ''}</td>
+          <td>${esc(e.title)}</td>
+          <td class="tiny muted">${fmtDate(e.updatedAt)}</td>
+          <td class="tiny">${e.published ? '<span class="ok">veröffentlicht</span>' : '<span class="muted">Entwurf</span>'}
+            ${e.auto ? '<div class="tiny muted">automatisch</div>' : ''}</td>
+          <td class="right nowrap">
+            <button class="secondary small" data-cl-edit="${e.id}">Laden</button>
+            <button class="danger small" data-cl-del="${e.id}">Löschen</button>
+          </td>
+        </tr>`).join('') || '<tr><td colspan="5" class="muted small">Noch keine Einträge.</td></tr>'}
+      </table></div>
+    </div>`;
+
+  const preview = () => {
+    document.querySelector('.cl-preview').innerHTML = renderBody(document.getElementById('cl-body').value);
+  };
+  document.getElementById('cl-body').addEventListener('input', preview);
+
+  document.getElementById('cl-save').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      await api.post('/admin/changelog', {
+        version: document.getElementById('cl-version').value,
+        title: document.getElementById('cl-title').value,
+        body: document.getElementById('cl-body').value,
+        published: document.getElementById('cl-published').checked,
+      });
+      toast('Eintrag gespeichert.', 'success');
+      changelog(body);
+    } catch (err) { toast(err.message, 'error'); e.target.disabled = false; }
+  });
+
+  document.getElementById('cl-reshow').addEventListener('click', async () => {
+    if (!confirm('Der Hinweis wird allen Spielern beim nächsten Seitenaufruf erneut eingeblendet. Fortfahren?')) return;
+    try {
+      const r = await api.post('/admin/changelog/reshow');
+      toast(`Hinweis für ${r.users} Spieler zurückgesetzt.`, 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  document.getElementById('cl-regen').addEventListener('click', async () => {
+    if (!confirm('Eintrag der laufenden Version aus der Git-Historie neu erzeugen? Ein von Hand bearbeiteter Text geht dabei verloren.')) return;
+    try {
+      await api.post('/admin/changelog/regenerate');
+      toast('Aus der Git-Historie neu erzeugt.', 'success');
+      changelog(body);
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  body.addEventListener('click', async (ev) => {
+    const edit = ev.target.closest('[data-cl-edit]');
+    const del = ev.target.closest('[data-cl-del]');
+    if (edit) {
+      const entry = d.entries.find((x) => x.id === Number(edit.dataset.clEdit));
+      if (!entry) return;
+      document.getElementById('cl-version').value = entry.version;
+      document.getElementById('cl-title').value = entry.title;
+      document.getElementById('cl-body').value = entry.body;
+      document.getElementById('cl-published').checked = entry.published;
+      preview();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (del) {
+      if (!confirm('Diesen Eintrag löschen?')) return;
+      try { await api.del(`/admin/changelog/${del.dataset.clDel}`); changelog(body); }
+      catch (err) { toast(err.message, 'error'); }
     }
   });
 }

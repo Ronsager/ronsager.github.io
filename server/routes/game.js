@@ -10,6 +10,7 @@ import { tickPlanet, planetSnapshot, usedFields } from '../engine/planet.js';
 import { processPlanetQueue, queueView, laneOf, laneEntries, laneFreeAt, cancelEntry } from '../engine/queue.js';
 import { recomputeUser, userRank } from '../engine/stats.js';
 import { unreadCount } from '../engine/messages.js';
+import { listEntries, unseenFor, markSeen } from '../engine/changelog.js';
 import { authenticate } from '../auth.js';
 
 export const router = express.Router();
@@ -109,6 +110,7 @@ router.get('/state', (req, res) => {
     research,
     unread: unreadCount(req.user.id),
     tutorialSeen: !!req.user.tutorial_seen,
+    changelog: unseenFor(req.user),
     version: VERSION,
     serverTime: now(),
   });
@@ -388,6 +390,17 @@ router.post('/tutorial', (req, res) => {
   const seen = req.body?.seen === false ? 0 : 1;
   db.prepare('UPDATE users SET tutorial_seen = ? WHERE id = ?').run(seen, req.user.id);
   res.json({ ok: true, tutorialSeen: !!seen });
+});
+
+/** Alle veröffentlichten Änderungsprotokoll-Einträge. */
+router.get('/changelog', (req, res) => {
+  res.json({ entries: listEntries(), unseen: unseenFor(req.user) });
+});
+
+/** Den Hinweis auf die aktuelle Version wegklicken. */
+router.post('/changelog/seen', (req, res) => {
+  markSeen(req.user.id, String(req.body?.version || ''));
+  res.json({ ok: true });
 });
 
 /** Statische Nachschlagedaten für das Frontend. */

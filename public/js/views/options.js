@@ -1,6 +1,7 @@
 import { api, auth } from '../api.js';
 import { fmt, fmtDate, esc, toast } from '../util.js';
 import { startTutorial } from '../tutorial.js';
+import { changelogListHtml } from '../changelog.js';
 
 export async function render(container, ctx) {
   const { state } = ctx;
@@ -51,6 +52,11 @@ export async function render(container, ctx) {
         <button id="tut-restart" style="margin-top:8px">Einführung erneut ansehen</button>
       </div>
 
+      <div class="panel accent-lilac" style="grid-column:1/-1">
+        <h2>Änderungsprotokoll</h2>
+        <div id="changelog-list"><div class="loader">Wird geladen</div></div>
+      </div>
+
       <div class="panel accent-red">
         <h2>Konto löschen</h2>
         <p class="small muted">Löscht das Konto samt aller Planeten unwiderruflich.</p>
@@ -71,6 +77,11 @@ export async function render(container, ctx) {
     </div>`;
 
   document.getElementById('tut-restart').addEventListener('click', () => startTutorial());
+
+  changelogListHtml()
+    .then((html) => { const n = document.getElementById('changelog-list'); if (n) n.innerHTML = html; })
+    .catch(() => { const n = document.getElementById('changelog-list');
+      if (n) n.innerHTML = '<p class="muted small">Konnte nicht geladen werden.</p>'; });
 
   document.getElementById('pw-save').addEventListener('click', async () => {
     try {

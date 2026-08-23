@@ -7,6 +7,8 @@ import { tickPlanet, createPlanet, findHomeworldSlot, planetSnapshot, addDebris 
 import { recomputeUser, recomputeAll } from '../engine/stats.js';
 import { sendMessage, broadcast } from '../engine/messages.js';
 import { queueView } from '../engine/queue.js';
+import { listEntries, ensureCurrentEntry } from '../engine/changelog.js';
+import { VERSION } from '../config.js';
 
 export const router = express.Router();
 router.use(authenticate, requireAdmin);
@@ -495,6 +497,65 @@ router.get('/log', (req, res) => {
     total: db.prepare('SELECT COUNT(*) AS c FROM admin_log').get().c,
     page,
   });
+});
+
+/* ------------------------------------------------------------------ */
+/* Änderungsprotokoll                                                  */
+/* ------------------------------------------------------------------ */
+
+router.get('/changelog', (req, res) => {
+  res.json({ entries: listEntries({ includeUnpublished: true, limit: 100 }), currentVersion: VERSION });
+});
+
+/** Eintrag anlegen oder überschreiben (Version dient als Schlüssel). */
+router.post('/changelog', (req, res) => {
+  const version = String(req.body?.version || '').trim().slice(0, 40);
+  if (!version) return res.status(400).json({ error: 'Eine Versionsangabe ist erforderlich.' });
+  const title = String(req.body?.title || `Version ${version}`).slice(0, 160);
+  const body = String(req.body?.body || '').slice(0, 20000);
+  const published = req.body?.published === false ? 0 : 1;
+  const t = now();
+
+  db.prepare(
+    `INSERT INTO changelog (version, title, body, published, auto, created_at, updated_at)
+     VALUES (?,?,?,?,0,?,?)
+     ON CONFLICT(version) DO UPDATE SET
+       title = excluded.title, body = excluded.body,
+       published = excluded.published, auto = 0, updated_at = excluded.updated_at`
+  ).run(version, title, body, published, t, t);
+
+  logAdmin(req.user, 'changelog', version, title);
+  res.json({ ok: true, entries: listEntries({ includeUnpublished: true, limit: 100 }) });
+});
+
+router.delete('/changelog/:id', (req, res) => {
+  const row = db.prepare('SELECT version FROM changelog WHERE id = ?').get(Number(req.params.id));
+  if (!row) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
+  db.prepare('DELETE FROM changelog WHERE id = ?').run(Number(req.params.id));
+  logAdmin(req.user, 'changelog_delete', row.version, '');
+  res.json({ ok: true, entries: listEntries({ includeUnpublished: true, limit: 100 }) });
+});
+
+/**
+ * Eintrag der laufenden Version aus der Git-Historie neu erzeugen.
+ * Überschreibt einen von Hand bearbeiteten Text – daher nur auf Anforderung.
+ */
+router.post('/changelog/regenerate', (req, res) => {
+  db.prepare('DELETE FROM changelog WHERE version = ?').run(VERSION);
+  const entry = ensureCurrentEntry();
+  logAdmin(req.user, 'changelog_regenerate', VERSION, '');
+  res.json({ ok: true, entry, entries: listEntries({ includeUnpublished: true, limit: 100 }) });
+});
+
+/**
+ * Den Hinweis für alle Spieler zurücksetzen. Nötig, wenn der Text einer bereits
+ * ausgelieferten Version nachträglich überarbeitet wurde – der Hinweis hängt
+ * sonst an der Versionsnummer und erschiene erst bei der nächsten Version.
+ */
+router.post('/changelog/reshow', (req, res) => {
+  const n = db.prepare("UPDATE users SET changelog_seen = ''").run().changes;
+  logAdmin(req.user, 'changelog_reshow', `${n} Spieler`, '');
+  res.json({ ok: true, users: n });
 });
 
 /** Katalog für die Auswahlfelder im Adminbereich. */

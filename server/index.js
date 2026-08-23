@@ -18,6 +18,7 @@ import { router as adminRouter } from './routes/admin.js';
 import { processDueQueues } from './engine/queue.js';
 import { processFleets } from './engine/fleet.js';
 import { recomputeAll } from './engine/stats.js';
+import { ensureCurrentEntry } from './engine/changelog.js';
 
 const app = express();
 if (config.trustProxy) app.set('trust proxy', 1);
@@ -156,6 +157,15 @@ function bootstrapAdmin() {
 }
 
 bootstrapAdmin();
+
+// Für die laufende Version einen Changelog-Eintrag anlegen, falls er fehlt.
+try {
+  const entry = ensureCurrentEntry();
+  if (entry?.auto) console.log(`✔ Changelog-Eintrag für ${entry.version} automatisch erzeugt.`);
+} catch (err) {
+  console.error('Changelog konnte nicht vorbereitet werden:', err.message);
+}
+
 gameTick();
 const timer = setInterval(gameTick, config.tickIntervalMs);
 

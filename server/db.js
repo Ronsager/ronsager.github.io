@@ -189,6 +189,19 @@ CREATE TABLE IF NOT EXISTS admin_log (
   created_at INTEGER NOT NULL
 );
 
+/* ---------------- Änderungsprotokoll (Changelog) ---------------- */
+CREATE TABLE IF NOT EXISTS changelog (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  version      TEXT    NOT NULL UNIQUE,
+  title        TEXT    NOT NULL DEFAULT '',
+  body         TEXT    NOT NULL DEFAULT '',
+  published    INTEGER NOT NULL DEFAULT 1,
+  auto         INTEGER NOT NULL DEFAULT 0,
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_changelog_created ON changelog(created_at DESC);
+
 /* ---------------- Laufzeit-Einstellungen ---------------- */
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
@@ -209,6 +222,7 @@ function addColumnIfMissing(table, column, definition) {
 }
 
 addColumnIfMissing('users', 'tutorial_seen', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('users', 'changelog_seen', "TEXT NOT NULL DEFAULT ''");
 
 /* ------------------------------------------------------------------ */
 /* Hilfsfunktionen                                                     */
