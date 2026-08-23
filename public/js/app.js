@@ -116,6 +116,10 @@ const appScreen = document.getElementById('app');
 function showAuth() {
   authScreen.classList.add('active');
   appScreen.classList.remove('active');
+  // Nach dem Abmelden oder einer abgelaufenen Sitzung wird der Bildschirm
+  // erneut gezeigt, ohne dass die Seite neu lädt. Falls die Konfiguration
+  // beim ersten Versuch nicht ankam, ist das hier die zweite Gelegenheit.
+  initAuthScreen();
 }
 function showApp() {
   authScreen.classList.remove('active');
@@ -127,40 +131,115 @@ function authAlert(message, kind = 'error') {
     ? `<div class="alert ${kind}">${esc(message)}</div>` : '';
 }
 
-async function initAuthScreen() {
-  try {
-    const cfg = await api.get('/auth/config');
-    document.getElementById('motd').textContent = cfg.motd || '';
-    if (cfg.version) {
-      const pre = /-(alpha|beta|rc)/i.test(cfg.version);
-      document.getElementById('auth-version').innerHTML =
-        (pre ? '<span class="ver-tag">Beta</span> ' : '') + 'Version ' + esc(cfg.version) +
-        (cfg.build ? ' <span class="build-id">' + esc(cfg.build) + '</span>' : '');
-    }
-    document.getElementById('faction-picker').innerHTML = cfg.factions
-      .map(
-        (f) => `<label class="faction-option">
-          <input type="radio" name="faction" value="${esc(f.key)}">
-          <span><span class="fname">${esc(f.name)}</span><br><span class="fdesc">${esc(f.description)}</span></span>
-        </label>`
-      )
-      .join('');
-    document.querySelectorAll('.faction-option').forEach((node) => {
-      node.addEventListener('click', () => {
-        document.querySelectorAll('.faction-option').forEach((n) => n.classList.remove('selected'));
-        node.classList.add('selected');
-        node.querySelector('input').checked = true;
-        applyFactionTheme(node.querySelector('input').value);
-        authAlert('');
-      });
+/* ------------------------------------------------------------------ */
+/* Fraktionswahl                                                       */
+/* ------------------------------------------------------------------ */
+
+/* Die Fraktionswahl ist bei der Registrierung Pflicht. Ihre Liste stammt vom
+   Server. Schlug dieser eine Abruf fehl – auf einem Raspberry Pi Zero 2 W
+   läuft die erste Anfrage nach einem Neustart durchaus einmal ins Leere –,
+   blieb der Wähler früher dauerhaft leer: Der Abruf wurde nur ein einziges
+   Mal beim Laden der Seite unternommen, und die Fehlermeldung darüber
+   verschwand, sobald man auf "Neues Kommando" wechselte. Übrig blieb ein
+   leerer Bereich ohne jeden Hinweis. Deshalb gilt jetzt dreierlei:
+   der Abruf wird wiederholt, ein Fehler steht im Wähler selbst (mitsamt
+   Knopf zum erneuten Laden), und jeder Wechsel zur Registrierung sowie jede
+   Rückkehr zum Anmeldebildschirm lädt bei Bedarf nach. */
+const authConfig = { geladen: false, laeuft: null };
+
+function factionPicker() {
+  return document.getElementById('faction-picker');
+}
+
+function renderFactions(factions) {
+  const picker = factionPicker();
+  picker.innerHTML = factions
+    .map(
+      (f) => `<label class="faction-option">
+        <input type="radio" name="faction" value="${esc(f.key)}">
+        <span><span class="fname">${esc(f.name)}</span><br><span class="fdesc">${esc(f.description)}</span></span>
+      </label>`
+    )
+    .join('');
+  picker.querySelectorAll('.faction-option').forEach((node) => {
+    node.addEventListener('click', () => {
+      picker.querySelectorAll('.faction-option').forEach((n) => n.classList.remove('selected'));
+      node.classList.add('selected');
+      node.querySelector('input').checked = true;
+      applyFactionTheme(node.querySelector('input').value);
+      authAlert('');
     });
-    if (!cfg.registrationOpen) {
-      document.getElementById('tab-register').disabled = true;
-      document.getElementById('tab-register').title = 'Die Registrierung ist derzeit geschlossen.';
+  });
+}
+
+/** Zeigt anstelle der Fraktionen einen Hinweis – der Bereich bleibt nie leer. */
+function factionHinweis(text, { erneut = false } = {}) {
+  const picker = factionPicker();
+  picker.innerHTML =
+    `<div class="faction-hinweis">
+       <span>${esc(text)}</span>
+       ${erneut ? '<button type="button" class="small" id="faction-retry">Erneut laden</button>' : ''}
+     </div>`;
+  const knopf = picker.querySelector('#faction-retry');
+  if (knopf) knopf.addEventListener('click', () => initAuthScreen({ erzwingen: true }));
+}
+
+/** Holt die Serverkonfiguration und gibt langsamen Servern mehrere Versuche. */
+async function ladeAuthConfig(versuche = 3) {
+  let letzter;
+  for (let i = 0; i < versuche; i += 1) {
+    try {
+      return await api.get('/auth/config');
+    } catch (err) {
+      letzter = err;
+      if (i < versuche - 1) await new Promise((r) => setTimeout(r, 800 * (i + 1)));
     }
-  } catch {
-    authAlert('Der Server ist nicht erreichbar.');
   }
+  throw letzter;
+}
+
+async function initAuthScreen({ erzwingen = false } = {}) {
+  if (authConfig.geladen && !erzwingen) return;
+  if (authConfig.laeuft) return authConfig.laeuft;
+
+  factionHinweis('Fraktionen werden geladen …');
+  authConfig.laeuft = (async () => {
+    try {
+      const cfg = await ladeAuthConfig();
+      document.getElementById('motd').textContent = cfg.motd || '';
+      if (cfg.version) {
+        const pre = /-(alpha|beta|rc)/i.test(cfg.version);
+        document.getElementById('auth-version').innerHTML =
+          (pre ? '<span class="ver-tag">Beta</span> ' : '') + 'Version ' + esc(cfg.version) +
+          (cfg.build ? ' <span class="build-id">' + esc(cfg.build) + '</span>' : '');
+      }
+
+      const factions = Array.isArray(cfg.factions) ? cfg.factions : [];
+      if (factions.length) {
+        renderFactions(factions);
+        authConfig.geladen = true;
+      } else {
+        factionHinweis('Der Server hat keine Fraktionen gemeldet.', { erneut: true });
+      }
+
+      // Bei geschlossener Registrierung genügt ein Mauszeiger-Hinweis nicht:
+      // auf dem Handy gibt es keinen Mauszeiger. Der Grund steht deshalb
+      // sichtbar unter den Reitern.
+      const tab = document.getElementById('tab-register');
+      const note = document.getElementById('auth-note');
+      tab.disabled = !cfg.registrationOpen;
+      tab.title = cfg.registrationOpen ? '' : 'Die Registrierung ist derzeit geschlossen.';
+      note.hidden = !!cfg.registrationOpen;
+      note.textContent = cfg.registrationOpen
+        ? '' : 'Neue Konten sind derzeit gesperrt. Ein Administrator kann sie im Adminbereich wieder freigeben.';
+    } catch {
+      authAlert('Der Server ist nicht erreichbar.');
+      factionHinweis('Die Fraktionsliste konnte nicht geladen werden.', { erneut: true });
+    } finally {
+      authConfig.laeuft = null;
+    }
+  })();
+  return authConfig.laeuft;
 }
 
 document.getElementById('tab-login').addEventListener('click', () => {
@@ -176,6 +255,8 @@ document.getElementById('tab-register').addEventListener('click', () => {
   document.getElementById('register-form').style.display = '';
   document.getElementById('login-form').style.display = 'none';
   authAlert('');
+  // Wer hier landet, braucht die Fraktionen. Fehlen sie noch, wird jetzt geladen.
+  initAuthScreen();
 });
 
 document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -202,7 +283,14 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
   const chosen = document.querySelector('input[name=faction]:checked');
   if (!chosen) {
-    authAlert('Bitte wählen Sie eine Fraktion aus. Die Wahl bestimmt Ihre Boni für das gesamte Spiel.');
+    // Zwei verschiedene Lagen, die man nicht verwechseln darf: Es steht keine
+    // Fraktion zur Wahl, oder es wurde keine ausgewählt.
+    if (!document.querySelector('.faction-option')) {
+      authAlert('Die Fraktionsliste ist noch nicht geladen. Sie wird jetzt erneut abgerufen.');
+      await initAuthScreen({ erzwingen: true });
+    } else {
+      authAlert('Bitte wählen Sie eine Fraktion aus. Die Wahl bestimmt Ihre Boni für das gesamte Spiel.');
+    }
     document.getElementById('faction-picker').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
@@ -411,7 +499,6 @@ async function start() {
     state.user = me.user;
   } catch {
     showAuth();
-    initAuthScreen();
     return;
   }
   showApp();
@@ -438,4 +525,4 @@ async function start() {
 setInterval(() => { if (state.user) refresh(); }, 20000);
 
 if (auth.token) start();
-else { showAuth(); initAuthScreen(); }
+else showAuth();

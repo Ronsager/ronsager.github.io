@@ -1,6 +1,6 @@
 {
   "name": "star-trek-conquest",
-  "version": "0.9.0-beta.1",
+  "version": "0.9.0-beta.2",
   "description": "Star Trek Conquest - ein browserbasiertes Weltraum-Strategiespiel im Stil von OGame (Multiplayer, Datenbank, Adminbereich)",
   "type": "module",
   "main": "server/index.js",
