@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { fmt, fmtShort, fmtDate, fmtCoords, esc, toast, modal, closeModal } from '../util.js';
 import { renderBody } from '../changelog.js';
+import { viewParam } from '../app.js';
 
 const TABS = [
   ['dashboard', 'Lagezentrum'], ['users', 'Benutzer'], ['fleets', 'Flotten'],
@@ -17,6 +18,15 @@ let catalog = null;
 export async function render(container, ctx) {
   if (!catalog) catalog = await api.get('/admin/catalog');
 
+  // Direktsprung aus dem Chat: #admin/user/<id> öffnet die Benutzerverwaltung
+  // und darin sofort das gewünschte Konto.
+  const direkt = viewParam().match(/^user\/(\d+)$/);
+  if (direkt) {
+    tab = 'users';
+    userSearch = '';
+    userRole = '';
+  }
+
   container.innerHTML = `
     <h1 style="margin-bottom:12px">Adminbereich <span class="small muted">Sternenflotten-Admiralität</span></h1>
     <div class="subtabs">
@@ -31,6 +41,12 @@ export async function render(container, ctx) {
   const body = document.getElementById('admin-body');
   const views = { dashboard, users, fleets, broadcast, changelog, settings, log };
   await views[tab](body, ctx);
+
+  if (direkt) {
+    // Adressteil bereinigen, damit ein späteres Neuladen nicht erneut springt
+    history.replaceState(null, '', '#admin');
+    await openUser(Number(direkt[1]));
+  }
 }
 
 /* ------------------------------------------------------------------ */

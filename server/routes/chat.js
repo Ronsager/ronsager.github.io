@@ -72,6 +72,7 @@ router.get('/', (req, res) => {
     channel,
     channels: channelsFor(req.user.id),
     canModerate: mod,
+    role: req.user.role,
     muted: mute ? { until: mute.until, reason: mute.reason, message: muteText(mute) } : null,
     messages: rows.map((m) => ({
       id: m.id,
@@ -163,6 +164,28 @@ router.get('/mutes', requireModerator, (req, res) => {
       reason: m.reason, byName: m.by_name, createdAt: m.created_at,
       expired: !!(m.until && m.until <= now()),
     })),
+  });
+});
+
+/** Kurzauskunft zu einem Spieler für den Moderationsdialog. */
+router.get('/user/:id', requireModerator, (req, res) => {
+  const id = Number(req.params.id);
+  const u = db
+    .prepare('SELECT id, username, role, banned, ban_reason, created_at, last_seen FROM users WHERE id = ?')
+    .get(id);
+  if (!u) return res.status(404).json({ error: 'Spieler nicht gefunden.' });
+
+  const mute = activeMute(id);
+  const counts = db
+    .prepare('SELECT COUNT(*) AS gesamt, SUM(deleted) AS entfernt FROM chat_messages WHERE user_id = ?')
+    .get(id);
+
+  res.json({
+    id: u.id, username: u.username, role: u.role,
+    banned: !!u.banned, banReason: u.ban_reason,
+    createdAt: u.created_at, lastSeen: u.last_seen,
+    mute: mute ? { until: mute.until, reason: mute.reason, byName: mute.by_name } : null,
+    messages: { total: counts.gesamt || 0, removed: counts.entfernt || 0 },
   });
 });
 

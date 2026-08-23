@@ -1046,15 +1046,32 @@ img { max-width: 100%; height: auto; }
 }
 .chat-role.admin { background: var(--lcars-salmon); }
 .chat-role.moderator { background: var(--lcars-ice); }
-.chat-tools { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .12s; }
+/* Dauerhaft sichtbar, nur dezent: Waren die Knöpfe erst beim Überfahren mit
+   der Maus zu sehen, fand man die Moderation schlicht nicht. */
+.chat-tools { margin-left: auto; display: flex; gap: 4px; opacity: .6; transition: opacity .12s; }
 .chat-msg:hover .chat-tools { opacity: 1; }
+/* Name als Einstieg in die Maßnahmen */
+.chat-name.actionable { cursor: pointer; border-bottom: 1px dotted currentColor; }
+.chat-name.actionable:hover { color: var(--lcars-orange); }
 .chat-form { display: flex; gap: 8px; }
 .chat-form input { flex: 1; }
 
 @media (max-width: 820px) {
   .chat-list { height: 46vh; }
   .chat-tools { opacity: 1; }          /* ohne Mauszeiger dauerhaft sichtbar */
+  .chat-tools .btn, .chat-tools button { padding: 4px 9px; font-size: .62rem; min-height: 28px; }
   .chat-form { flex-wrap: wrap; }
   .chat-form input { flex: 1 1 100%; }
   .chat-form button { flex: 1 1 auto; }
 }
+
+/* Zustandsübersicht im Moderationsdialog */
+.mod-state {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  background: var(--bg-panel-2); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;
+}
+.mod-state > div { display: flex; flex-direction: column; gap: 1px; }
+.mod-state span { font-size: .58rem; text-transform: uppercase; letter-spacing: .12em; }
+.mod-state b { font-size: .84rem; color: var(--lcars-tan); }
+.chat-tools .btn.ghost { line-height: 1.6; }
+@media (max-width: 820px) { .mod-state { grid-template-columns: 1fr; } }

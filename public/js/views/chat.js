@@ -13,6 +13,7 @@ let channel = 'global';
 let lastId = 0;
 let timer = null;
 let canModerate = false;
+let isAdmin = false;
 let sending = false;
 
 const ROLE_LABEL = { admin: 'Admiralität', moderator: 'Moderation' };
@@ -37,12 +38,16 @@ function messageHtml(m) {
          ${m.deleted
             ? `<button class="ghost small" data-restore="${m.id}">Wiederherstellen</button>`
             : `<button class="ghost small" data-del="${m.id}">Löschen</button>`}
-         ${m.userId && !m.own ? `<button class="ghost small" data-mute="${m.userId}" data-name="${esc(m.username)}">Stumm</button>` : ''}
+         ${m.userId && !m.own ? `<button class="ghost small" data-mute="${m.userId}" data-name="${esc(m.username)}">Maßnahmen</button>` : ''}
+         ${isAdmin && m.userId && !m.own ? `<a class="btn ghost small" href="#admin/user/${m.userId}" title="In der Benutzerverwaltung öffnen">Verwaltung ↗</a>` : ''}
        </span>` : '';
 
   return `<div class="chat-msg ${m.own ? 'own' : ''} ${m.deleted ? 'deleted' : ''}" data-id="${m.id}">
     <div class="chat-meta">
-      <span class="chat-name">${esc(m.username)}</span>${badge}
+      <span class="chat-name ${canModerate && m.userId && !m.own ? 'actionable' : ''}"
+            ${canModerate && m.userId && !m.own ? `data-mute="${m.userId}" data-name="${esc(m.username)}"` : ''}
+            ${canModerate && m.userId && !m.own ? 'title="Maßnahmen gegen diesen Spieler"' : ''}
+      >${esc(m.username)}</span>${badge}
       <span class="chat-time">${timeOf(m.createdAt)}</span>
       ${m.deleted ? `<span class="chat-removed">entfernt von ${esc(m.deletedBy || '?')}</span>` : ''}
       ${tools}
@@ -56,6 +61,7 @@ async function poll(container) {
   try {
     const d = await api.get(`/chat?channel=${encodeURIComponent(channel)}&since=${lastId}`);
     canModerate = d.canModerate;
+    isAdmin = d.role === 'admin';
     const list = container.querySelector('#chat-list');
     if (!list) { stopPolling(); return; }
 
@@ -82,6 +88,7 @@ export async function render(container, ctx) {
 
   const first = await api.get(`/chat?channel=${encodeURIComponent(channel)}`);
   canModerate = first.canModerate;
+  isAdmin = first.role === 'admin';
   if (!first.channels.some((c) => c.key === channel)) channel = 'global';
 
   container.innerHTML = `
@@ -108,7 +115,7 @@ export async function render(container, ctx) {
       </form>
       <p class="tiny muted">
         ${canModerate
-          ? 'Als Moderator können Sie Nachrichten entfernen und Spieler stummschalten.'
+          ? 'Moderation: <b>Maßnahmen</b> an einer Nachricht (oder ein Klick auf den Namen) öffnet Stummschaltung und weitere Schritte. <b>Löschen</b> entfernt eine Nachricht.'
           : 'Bleiben Sie sachlich. Moderatoren können Nachrichten entfernen.'}
       </p>
     </div>`;
@@ -162,16 +169,39 @@ export async function render(container, ctx) {
 /* Moderationsdialoge                                                  */
 /* ------------------------------------------------------------------ */
 
-function muteDialog(userId, name, done) {
+async function muteDialog(userId, name, done) {
+  let info = null;
+  try { info = await api.get(`/chat/user/${userId}`); } catch { /* Auskunft ist optional */ }
+
+  const zustand = info
+    ? `<div class="mod-state">
+         <div><span class="muted">Rolle</span><b>${
+           { admin: 'Administrator', moderator: 'Moderator' }[info.role] || 'Spieler'}</b></div>
+         <div><span class="muted">Nachrichten</span><b>${info.messages.total} <span class="tiny muted">(${info.messages.removed} entfernt)</span></b></div>
+         <div><span class="muted">Zuletzt online</span><b>${info.lastSeen ? fmtDate(info.lastSeen) : '–'}</b></div>
+         <div><span class="muted">Konto</span><b class="${info.banned ? 'bad' : 'ok'}">${info.banned ? 'gesperrt' : 'aktiv'}</b></div>
+       </div>
+       ${info.mute
+          ? `<div class="alert info">Bereits stummgeschaltet ${
+              info.mute.until ? 'bis ' + fmtDate(info.mute.until) : '(unbefristet)'} von ${esc(info.mute.byName)}.
+              ${info.mute.reason ? 'Grund: ' + esc(info.mute.reason) : ''}</div>`
+          : ''}`
+    : '';
+
   const box = modal(`
-    <h2>${esc(name)} stummschalten</h2>
+    <h2>Maßnahmen gegen ${esc(name)}</h2>
+    ${zustand}
+
+    <h3 style="margin:14px 0 6px">Chat-Stummschaltung</h3>
     <div class="field">
       <label>Dauer</label>
       <select id="mute-minutes">
         <option value="10">10 Minuten</option>
+        <option value="30">30 Minuten</option>
         <option value="60" selected>1 Stunde</option>
         <option value="360">6 Stunden</option>
         <option value="1440">1 Tag</option>
+        <option value="4320">3 Tage</option>
         <option value="10080">1 Woche</option>
         <option value="0">unbefristet</option>
       </select>
@@ -180,9 +210,26 @@ function muteDialog(userId, name, done) {
       <input id="mute-reason" maxlength="300" placeholder="z. B. Beleidigungen"></div>
     <div class="row">
       <button class="danger" id="mute-ok">Stummschalten</button>
-      <button class="secondary" id="mute-cancel">Abbrechen</button>
+      ${info?.mute ? '<button class="secondary" id="mute-lift">Stummschaltung aufheben</button>' : ''}
+    </div>
+
+    ${isAdmin && info && info.role !== 'admin' ? `
+      <h3 style="margin:18px 0 6px">Weitergehende Maßnahmen</h3>
+      <p class="tiny muted">Eine Kontosperre schließt den Spieler vom gesamten Spiel aus, nicht nur vom Chat.</p>
+      <div class="row" style="margin-top:8px">
+        ${info.banned
+          ? '<button class="success" id="acc-unban">Kontosperre aufheben</button>'
+          : '<button class="danger" id="acc-ban">Konto sperren</button>'}
+        <a class="btn secondary" href="#admin/user/${userId}" id="acc-manage">Benutzerverwaltung öffnen ↗</a>
+      </div>` : ''}
+
+    <div class="row" style="margin-top:16px">
+      <button class="secondary" id="mute-cancel">Schließen</button>
     </div>`);
+
   box.querySelector('#mute-cancel').addEventListener('click', closeModal);
+  box.querySelector('#acc-manage')?.addEventListener('click', closeModal);
+
   box.querySelector('#mute-ok').addEventListener('click', async () => {
     try {
       await api.post('/chat/mute', {
@@ -191,6 +238,35 @@ function muteDialog(userId, name, done) {
         reason: box.querySelector('#mute-reason').value,
       });
       toast(`${name} wurde stummgeschaltet.`, 'success');
+      closeModal();
+      if (done) done();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  box.querySelector('#mute-lift')?.addEventListener('click', async () => {
+    try {
+      await api.del(`/chat/mute/${userId}`);
+      toast('Stummschaltung aufgehoben.', 'success');
+      closeModal();
+      if (done) done();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  box.querySelector('#acc-ban')?.addEventListener('click', async () => {
+    const grund = prompt(`Grund für die Kontosperre von ${name}:`, box.querySelector('#mute-reason').value || '');
+    if (grund === null) return;
+    try {
+      await api.patch(`/admin/users/${userId}`, { banned: true, banReason: grund });
+      toast(`${name} wurde gesperrt.`, 'success');
+      closeModal();
+      if (done) done();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  box.querySelector('#acc-unban')?.addEventListener('click', async () => {
+    try {
+      await api.patch(`/admin/users/${userId}`, { banned: false });
+      toast(`Kontosperre für ${name} aufgehoben.`, 'success');
       closeModal();
       if (done) done();
     } catch (err) { toast(err.message, 'error'); }
