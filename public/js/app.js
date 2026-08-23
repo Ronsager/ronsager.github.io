@@ -55,14 +55,15 @@ export const serverNow = () => Date.now() + state.serverOffset;
 
 
 /** Versionsangabe in der Fußleiste. Vorabfassungen werden als BETA gekennzeichnet. */
-function setVersion(version) {
+function setVersion(version, build) {
   const node = document.getElementById('version-info');
   if (!node || !version) return;
   const isPre = /-(alpha|beta|rc)/i.test(version);
-  node.innerHTML = isPre
-    ? `<span class="ver-tag">Beta</span> v${esc(version)}`
-    : `v${esc(version)}`;
-  node.title = `Star Trek Conquest ${version}`;
+  node.innerHTML =
+    (isPre ? `<span class="ver-tag">Beta</span> ` : '') +
+    `v${esc(version)}` +
+    (build ? ` <span class="build-id" title="Stand des geladenen Programmcodes">${esc(build)}</span>` : '');
+  node.title = `Star Trek Conquest ${version}${build ? ' · Stand ' + build : ''}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -106,7 +107,8 @@ async function initAuthScreen() {
     if (cfg.version) {
       const pre = /-(alpha|beta|rc)/i.test(cfg.version);
       document.getElementById('auth-version').innerHTML =
-        (pre ? '<span class="ver-tag">Beta</span> ' : '') + 'Version ' + esc(cfg.version);
+        (pre ? '<span class="ver-tag">Beta</span> ' : '') + 'Version ' + esc(cfg.version) +
+        (cfg.build ? ' <span class="build-id">' + esc(cfg.build) + '</span>' : '');
     }
     document.getElementById('faction-picker').innerHTML = cfg.factions
       .map(
@@ -332,8 +334,9 @@ export async function refresh(rerender = false) {
     state.user = data.user;
     state.planetId = data.planet.id;
     state.serverOffset = data.serverTime - Date.now();
+    window.__stcUserId = data.user.id;   // für Ansichten, die eigene Beiträge erkennen müssen
     applyFactionTheme(data.user.faction);
-    setVersion(data.version);
+    setVersion(data.version, data.build);
     renderHeader();
     renderResourceBar();
     renderSidebar();

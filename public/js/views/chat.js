@@ -38,15 +38,16 @@ function messageHtml(m) {
          ${m.deleted
             ? `<button class="ghost small" data-restore="${m.id}">Wiederherstellen</button>`
             : `<button class="ghost small" data-del="${m.id}">Löschen</button>`}
-         ${m.userId && !m.own ? `<button class="ghost small" data-mute="${m.userId}" data-name="${esc(m.username)}">Maßnahmen</button>` : ''}
+         ${m.userId ? `<button class="ghost small" data-mute="${m.userId}" data-name="${esc(m.username)}">${m.own ? 'Info' : 'Maßnahmen'}</button>` : ''}
+         ${isAdmin ? `<button class="ghost small danger-text" data-purge="${m.id}" title="Endgültig aus der Datenbank löschen">Endgültig</button>` : ''}
          ${isAdmin && m.userId && !m.own ? `<a class="btn ghost small" href="#admin/user/${m.userId}" title="In der Benutzerverwaltung öffnen">Verwaltung ↗</a>` : ''}
        </span>` : '';
 
   return `<div class="chat-msg ${m.own ? 'own' : ''} ${m.deleted ? 'deleted' : ''}" data-id="${m.id}">
     <div class="chat-meta">
-      <span class="chat-name ${canModerate && m.userId && !m.own ? 'actionable' : ''}"
-            ${canModerate && m.userId && !m.own ? `data-mute="${m.userId}" data-name="${esc(m.username)}"` : ''}
-            ${canModerate && m.userId && !m.own ? 'title="Maßnahmen gegen diesen Spieler"' : ''}
+      <span class="chat-name ${canModerate && m.userId ? 'actionable' : ''}"
+            ${canModerate && m.userId ? `data-mute="${m.userId}" data-name="${esc(m.username)}"` : ''}
+            ${canModerate && m.userId ? 'title="Spielerdaten und Maßnahmen"' : ''}
       >${esc(m.username)}</span>${badge}
       <span class="chat-time">${timeOf(m.createdAt)}</span>
       ${m.deleted ? `<span class="chat-removed">entfernt von ${esc(m.deletedBy || '?')}</span>` : ''}
@@ -94,7 +95,11 @@ export async function render(container, ctx) {
   container.innerHTML = `
     <div class="row between" style="margin-bottom:10px">
       <h1>Subraum-Kommunikation</h1>
-      ${canModerate ? '<button class="secondary small" id="chat-mutes">Stummschaltungen verwalten</button>' : ''}
+      <div class="row">
+        ${canModerate ? '<button class="secondary small" id="chat-mutes">Stummschaltungen</button>' : ''}
+        ${isAdmin ? '<button class="secondary small" id="chat-purge-deleted">Entfernte endgültig löschen</button>' : ''}
+        ${isAdmin ? '<button class="danger small" id="chat-purge-all">Kanal leeren</button>' : ''}
+      </div>
     </div>
 
     <div class="subtabs">
@@ -113,11 +118,11 @@ export async function render(container, ctx) {
                placeholder="Nachricht an alle im Kanal …" ${first.muted ? 'disabled' : ''}>
         <button id="chat-send" ${first.muted ? 'disabled' : ''}>Senden</button>
       </form>
-      <p class="tiny muted">
-        ${canModerate
-          ? 'Moderation: <b>Maßnahmen</b> an einer Nachricht (oder ein Klick auf den Namen) öffnet Stummschaltung und weitere Schritte. <b>Löschen</b> entfernt eine Nachricht.'
-          : 'Bleiben Sie sachlich. Moderatoren können Nachrichten entfernen.'}
-      </p>
+      ${canModerate ? `<p class="tiny muted">
+        Moderation: <b>Maßnahmen</b> an einer Nachricht – oder ein Klick auf den Namen –
+        öffnet Stummschaltung und weitere Schritte. <b>Löschen</b> markiert eine Nachricht
+        als entfernt${isAdmin ? ', <b>Endgültig</b> löscht sie aus der Datenbank' : ''}.
+      </p>` : ''}
     </div>`;
 
   if (first.messages.length) lastId = Math.max(...first.messages.map((m) => m.id));
@@ -154,6 +159,14 @@ export async function render(container, ctx) {
     const restore = e.target.closest('[data-restore]');
     const mute = e.target.closest('[data-mute]');
     try {
+      const purge = e.target.closest('[data-purge]');
+      if (purge) {
+        if (!confirm('Diese Nachricht endgültig aus der Datenbank löschen? Das lässt sich nicht rückgängig machen.')) return;
+        const r = await api.post('/chat/purge', { messageId: Number(purge.dataset.purge) });
+        toast(`${r.removed} Nachricht endgültig gelöscht.`, 'success');
+        render(container, ctx);
+        return;
+      }
       if (del) { await api.del(`/chat/${del.dataset.del}`); render(container, ctx); }
       else if (restore) { await api.post(`/chat/${restore.dataset.restore}/restore`); render(container, ctx); }
       else if (mute) muteDialog(Number(mute.dataset.mute), mute.dataset.name, () => render(container, ctx));
@@ -161,6 +174,25 @@ export async function render(container, ctx) {
   });
 
   container.querySelector('#chat-mutes')?.addEventListener('click', () => showMutes(() => render(container, ctx)));
+
+  container.querySelector('#chat-purge-deleted')?.addEventListener('click', async () => {
+    if (!confirm('Alle bereits entfernten Nachrichten dieses Kanals endgültig löschen?')) return;
+    try {
+      const r = await api.post('/chat/purge', { channel, onlyDeleted: true });
+      toast(`${r.removed} Nachricht(en) endgültig gelöscht.`, 'success');
+      render(container, ctx);
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  container.querySelector('#chat-purge-all')?.addEventListener('click', async () => {
+    if (!confirm(`Wirklich ALLE Nachrichten aus diesem Kanal endgültig löschen? Das lässt sich nicht rückgängig machen.`)) return;
+    if (!confirm('Sicherheitsabfrage: Der gesamte Verlauf dieses Kanals geht verloren. Fortfahren?')) return;
+    try {
+      const r = await api.post('/chat/purge', { channel });
+      toast(`Kanal geleert – ${r.removed} Nachricht(en) gelöscht.`, 'success');
+      render(container, ctx);
+    } catch (err) { toast(err.message, 'error'); }
+  });
 
   timer = setInterval(() => poll(container), 5000);
 }
@@ -188,10 +220,16 @@ async function muteDialog(userId, name, done) {
           : ''}`
     : '';
 
-  const box = modal(`
-    <h2>Maßnahmen gegen ${esc(name)}</h2>
-    ${zustand}
+  const eigenesKonto = info && window.__stcUserId === info.id;
 
+  const box = modal(`
+    <h2>${eigenesKonto ? esc(name) + ' (Ihr Konto)' : 'Maßnahmen gegen ' + esc(name)}</h2>
+    ${zustand}
+    ${eigenesKonto ? `<div class="alert info">
+      Maßnahmen gegen das eigene Konto sind nicht möglich. Zum Entfernen einzelner
+      Nachrichten nutzen Sie <b>Löschen</b> an der jeweiligen Nachricht.</div>
+      <div class="row" style="margin-top:12px"><button class="secondary" id="mute-cancel">Schließen</button></div>`
+    : `
     <h3 style="margin:14px 0 6px">Chat-Stummschaltung</h3>
     <div class="field">
       <label>Dauer</label>
@@ -220,17 +258,18 @@ async function muteDialog(userId, name, done) {
         ${info.banned
           ? '<button class="success" id="acc-unban">Kontosperre aufheben</button>'
           : '<button class="danger" id="acc-ban">Konto sperren</button>'}
+        <button class="secondary" id="acc-purge">Alle Nachrichten endgültig löschen</button>
         <a class="btn secondary" href="#admin/user/${userId}" id="acc-manage">Benutzerverwaltung öffnen ↗</a>
       </div>` : ''}
 
     <div class="row" style="margin-top:16px">
       <button class="secondary" id="mute-cancel">Schließen</button>
-    </div>`);
+    </div>`}`);
 
   box.querySelector('#mute-cancel').addEventListener('click', closeModal);
   box.querySelector('#acc-manage')?.addEventListener('click', closeModal);
 
-  box.querySelector('#mute-ok').addEventListener('click', async () => {
+  box.querySelector('#mute-ok')?.addEventListener('click', async () => {
     try {
       await api.post('/chat/mute', {
         userId,
@@ -258,6 +297,16 @@ async function muteDialog(userId, name, done) {
     try {
       await api.patch(`/admin/users/${userId}`, { banned: true, banReason: grund });
       toast(`${name} wurde gesperrt.`, 'success');
+      closeModal();
+      if (done) done();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  box.querySelector('#acc-purge')?.addEventListener('click', async () => {
+    if (!confirm(`Alle Chatnachrichten von ${name} endgültig löschen? Das lässt sich nicht rückgängig machen.`)) return;
+    try {
+      const r = await api.post('/chat/purge', { userId });
+      toast(`${r.removed} Nachricht(en) endgültig gelöscht.`, 'success');
       closeModal();
       if (done) done();
     } catch (err) { toast(err.message, 'error'); }

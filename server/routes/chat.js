@@ -1,6 +1,6 @@
 import express from 'express';
 import { db, now, logAdmin } from '../db.js';
-import { authenticate, requireModerator, isModerator } from '../auth.js';
+import { authenticate, requireModerator, requireAdmin, isModerator } from '../auth.js';
 
 export const router = express.Router();
 router.use(authenticate);
@@ -149,6 +149,45 @@ router.post('/:id/restore', requireModerator, (req, res) => {
   db.prepare('UPDATE chat_messages SET deleted = 0, deleted_by = NULL, deleted_at = NULL WHERE id = ?').run(id);
   logAdmin(req.user, 'chat_restore', String(id), '');
   res.json({ ok: true });
+});
+
+/**
+ * Endgültiges Löschen – nur für Administratoren.
+ *
+ * Die Moderation markiert Nachrichten sonst nur als entfernt, damit der
+ * Gesprächsverlauf nachvollziehbar bleibt. Hier verschwindet der Datensatz
+ * tatsächlich aus der Datenbank; das ist nicht rückgängig zu machen und
+ * deshalb Administratoren vorbehalten.
+ *
+ * Wirkt wahlweise auf eine einzelne Nachricht, alle Nachrichten eines
+ * Spielers oder alle bereits als entfernt markierten Nachrichten eines Kanals.
+ */
+router.post('/purge', requireAdmin, (req, res) => {
+  const { messageId, userId, channel, onlyDeleted } = req.body || {};
+  let removed = 0;
+  let beschreibung = '';
+
+  if (messageId) {
+    const m = db.prepare('SELECT username, text FROM chat_messages WHERE id = ?').get(Number(messageId));
+    if (!m) return res.status(404).json({ error: 'Nachricht nicht gefunden.' });
+    removed = db.prepare('DELETE FROM chat_messages WHERE id = ?').run(Number(messageId)).changes;
+    beschreibung = `Nachricht von ${m.username}: ${m.text.slice(0, 100)}`;
+  } else if (userId) {
+    const u = db.prepare('SELECT username FROM users WHERE id = ?').get(Number(userId));
+    removed = db.prepare('DELETE FROM chat_messages WHERE user_id = ?').run(Number(userId)).changes;
+    beschreibung = `alle Nachrichten von ${u?.username || userId}`;
+  } else if (channel) {
+    const ch = String(channel);
+    removed = onlyDeleted
+      ? db.prepare('DELETE FROM chat_messages WHERE channel = ? AND deleted = 1').run(ch).changes
+      : db.prepare('DELETE FROM chat_messages WHERE channel = ?').run(ch).changes;
+    beschreibung = onlyDeleted ? `entfernte Nachrichten in ${ch}` : `gesamter Kanal ${ch}`;
+  } else {
+    return res.status(400).json({ error: 'Es wurde nicht angegeben, was gelöscht werden soll.' });
+  }
+
+  logAdmin(req.user, 'chat_purge', `${removed} Nachricht(en)`, beschreibung);
+  res.json({ ok: true, removed });
 });
 
 router.get('/mutes', requireModerator, (req, res) => {

@@ -23,6 +23,28 @@ function readVersion() {
  */
 const versionState = { current: readVersion(), fromPackage: readVersion() };
 
+/**
+ * Kennung des geladenen Standes (kurzer Git-Commit-Hash).
+ * Sie erscheint in der Fußleiste und unter /api/health. Damit lässt sich mit
+ * einem Blick vergleichen, ob der Browser wirklich den Stand geladen hat, der
+ * auf dem Server liegt – die häufigste Ursache für "Änderung nicht sichtbar".
+ */
+function readBuild() {
+  try {
+    const head = fs.readFileSync(path.join(ROOT, '.git', 'HEAD'), 'utf8').trim();
+    const ref = head.startsWith('ref:') ? head.slice(5).trim() : null;
+    const hash = ref
+      ? fs.readFileSync(path.join(ROOT, '.git', ref), 'utf8').trim()
+      : head;
+    return hash.slice(0, 7);
+  } catch {
+    return 'unbekannt';
+  }
+}
+
+const buildState = { id: readBuild() };
+export const getBuild = () => buildState.id;
+
 export const getVersion = () => versionState.current;
 export const getPackageVersion = () => versionState.fromPackage;
 export function setVersionOverride(v) {

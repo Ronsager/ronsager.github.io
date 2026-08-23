@@ -1,6 +1,6 @@
 import express from 'express';
 import { db, now, getBuildings, getShips, getDefenses, getResearch } from '../db.js';
-import { config, getVersion } from '../config.js';
+import { config, getVersion, getBuild } from '../config.js';
 import { BUILDINGS, RESEARCH, SHIPS, DEFENSES, FACTIONS, RESOURCES, PLANET_TYPES, itemDef } from '../gamedata.js';
 import {
   levelCost, unitCost, demolishRefund, buildTimeMs, missingRequirements,
@@ -112,6 +112,7 @@ router.get('/state', (req, res) => {
     tutorialSeen: !!req.user.tutorial_seen,
     changelog: unseenFor(req.user),
     version: getVersion(),
+    build: getBuild(),
     serverTime: now(),
   });
 });
