@@ -13,6 +13,29 @@ function statsDiffer(current, next) {
   return STAT_COLUMNS.some((key) => Math.abs((current[key] || 0) - (next[key] || 0)) > 1e-6);
 }
 
+/**
+ * Faengt unbrauchbare Zahlen ab, bevor sie in die Datenbank gelangen.
+ *
+ * NaN und Infinity werden von SQLite als NULL gespeichert. Ein einziger
+ * beschaedigter Wert liess so den Punktestand eines Spielers stillschweigend
+ * auf null fallen - und jede spaetere Anpassung lief ins Leere, weil die
+ * Rechnung schon vor dem Speichern zerfallen war. Statt das weiterzureichen,
+ * wird der Wert hier auf null gesetzt und der Vorfall protokolliert.
+ */
+function zahlenPruefen(userId, werte) {
+  for (const [name, wert] of Object.entries(werte)) {
+    if (!Number.isFinite(wert)) {
+      console.error(
+        `[Punkte] Unbrauchbarer Wert bei Spieler ${userId}: ${name} = ${wert}. ` +
+        'Vermutlich steht in buildings/research/ships/defenses ein Wert, der keine Zahl ist. ' +
+        'Pruefen mit: node scripts/punkte-pruefen.mjs <Spielername>'
+      );
+      werte[name] = 0;
+    }
+  }
+  return werte;
+}
+
 /** Punkte eines Spielers neu berechnen (Gebäude + Forschung + Flotte + Verteidigung). */
 export function recomputeUser(userId) {
   const planets = db.prepare('SELECT id FROM planets WHERE user_id = ?').all(userId);
@@ -51,12 +74,12 @@ export function recomputeUser(userId) {
   // erhalten – sonst würde er beim nächsten Durchlauf überschrieben.
   const bonus = db.prepare('SELECT points_bonus FROM stats WHERE user_id = ?').get(userId)?.points_bonus || 0;
 
-  const next = {
+  const next = zahlenPruefen(userId, {
     points: eco + rest.res_points + rest.mil_points + bonus,
     eco_points: eco,
     res_points: rest.res_points,
     mil_points: rest.mil_points,
-  };
+  });
 
   // Nur schreiben, wenn sich tatsächlich etwas geändert hat.
   // Solange niemand spielt, entstehen dadurch überhaupt keine Schreibzugriffe –
@@ -152,9 +175,23 @@ export function setPoints(userId, zielPunkte) {
   db.prepare('UPDATE stats SET points_bonus = 0 WHERE user_id = ?').run(userId);
   const berechnet = recomputeUser(userId).points;
 
-  const bonus = ziel - berechnet;
+  const bonus = Number.isFinite(ziel - berechnet) ? ziel - berechnet : ziel;
   db.prepare('UPDATE stats SET points_bonus = ? WHERE user_id = ?').run(bonus, userId);
   const nachher = recomputeUser(userId);
+
+  // Nachsehen, ob wirklich angekommen ist, was gewollt war. Weicht es ab,
+  // wird der Zielwert unmittelbar geschrieben, damit die Anweisung des
+  // Administrators nicht verpufft - und der Vorfall protokolliert.
+  const gespeichert = db.prepare('SELECT points FROM stats WHERE user_id = ?').get(userId)?.points;
+  if (!Number.isFinite(gespeichert) || Math.abs(gespeichert - ziel) > 0.5) {
+    console.error(
+      `[Punkte] Zielwert verfehlt bei Spieler ${userId}: gewollt ${ziel}, ` +
+      `berechnet ${berechnet}, Zuschlag ${bonus}, gespeichert ${gespeichert}. Wird direkt gesetzt.`
+    );
+    db.prepare('UPDATE stats SET points = ?, points_bonus = ?, updated_at = ? WHERE user_id = ?')
+      .run(ziel, ziel - (Number.isFinite(berechnet) ? berechnet : 0), now(), userId);
+    return { bonus, berechnet, points: ziel, korrigiert: true };
+  }
 
   return { bonus, berechnet, points: nachher.points };
 }

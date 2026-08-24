@@ -259,29 +259,41 @@ export function combatStats(key, def, research, faction) {
 /* Punkte                                                              */
 /* ------------------------------------------------------------------ */
 
+/* SQLite ist schwach typisiert: In einer INTEGER-Spalte kann durchaus Text
+   stehen. Ein einziger solcher Wert genuegte bisher, um die gesamte Summe zu
+   NaN zu machen - und NaN wird beim Speichern zu NULL, wodurch der Punktestand
+   eines Spielers stillschweigend auf null fiel. Deshalb wird jede Zahl aus der
+   Datenbank hier geprueft, bevor sie in eine Rechnung eingeht. */
+function ganzzahl(wert) {
+  const n = Number(wert);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
 /** 1 Punkt je 1.000 investierter Rohstoffe (wie in OGame). */
 function investedForLevels(defs, levels) {
   let sum = 0;
   for (const [key, lvl] of Object.entries(levels)) {
     const def = defs[key];
     if (!def) continue;
-    for (let i = 1; i <= lvl; i++) {
+    const stufe = Math.min(ganzzahl(lvl), 1000);   // Deckel gegen Ueberlauf
+    for (let i = 1; i <= stufe; i++) {
       const c = levelCost(def, i);
       sum += (c.duranium || 0) + (c.dilithium || 0) + (c.deuterium || 0);
     }
   }
-  return sum;
+  return Number.isFinite(sum) ? sum : 0;
 }
 
 function investedForUnits(defs, counts) {
   let sum = 0;
   for (const [key, n] of Object.entries(counts)) {
     const def = defs[key];
-    if (!def || !n) continue;
+    const anzahl = ganzzahl(n);
+    if (!def || !anzahl) continue;
     const c = def.cost;
-    sum += ((c.duranium || 0) + (c.dilithium || 0) + (c.deuterium || 0)) * n;
+    sum += ((c.duranium || 0) + (c.dilithium || 0) + (c.deuterium || 0)) * anzahl;
   }
-  return sum;
+  return Number.isFinite(sum) ? sum : 0;
 }
 
 export function computePoints({ buildings = {}, research = {}, ships = {}, defenses = {} }) {

@@ -313,7 +313,34 @@ sqlite3 data/universe.db "UPDATE users SET role='admin' WHERE username='DEIN-NAM
 
 ---
 
-## 8. Server von Hand starten (zur Fehlersuche)
+## 8. Punkte eines Spielers lassen sich nicht setzen
+
+Werden im Adminbereich gesetzte Gesamtpunkte oder Ränge nicht übernommen,
+spielt dieses Werkzeug den ganzen Vorgang an einer **Kopie** der Datenbank durch
+und zeigt jeden Zwischenschritt. Die laufende Datenbank bleibt unberührt:
+
+```bash
+cd ~/star-trek-conquest
+node scripts/punkte-pruefen.mjs SPIELERNAME 100
+```
+
+Am Ende benennt es eine von drei Lagen:
+
+* **Unbrauchbare Werte in den Rohdaten** — in `buildings`, `research`, `ships`
+  oder `defenses` steht ein Eintrag, der keine Zahl ist. Die betroffene Zeile
+  wird namentlich genannt.
+* **Zielwert wird korrekt gespeichert** — dann liegt es nicht an der Berechnung,
+  sondern daran, dass ein **zweiter Serverprozess** dagegenschreibt:
+  ```bash
+  pgrep -af "node server/index.js"                       # mehr als eine Zeile?
+  systemctl show -p MainPID --value star-trek-conquest   # das ist der richtige
+  ```
+  Jeden anderen Prozess mit `kill <PID>` beenden.
+* **Zielwert verfehlt** — dann bitte die vollständige Ausgabe melden.
+
+---
+
+## 9. Server von Hand starten (zur Fehlersuche)
 
 ```bash
 sudo systemctl stop star-trek-conquest
@@ -333,7 +360,7 @@ sudo systemctl start star-trek-conquest
 
 ---
 
-## 9. Wenn gar nichts mehr geht
+## 10. Wenn gar nichts mehr geht
 
 ```bash
 # 1. Was sagt das Protokoll?
