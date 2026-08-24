@@ -181,6 +181,29 @@ npm run reset -- --yes
 
 ---
 
+## 4a. Bilder neu erzeugen
+
+Die Planeten, die Fraktionswappen und die Bilder der Einführung liegen als
+fertige PNG-Dateien im Repository. Sie müssen nur dann neu erzeugt werden, wenn
+sich die Oberfläche geändert hat.
+
+```bash
+npm run bilder                # alles: Planeten, Wappen, Einführung
+npm run bilder:einfuehrung    # nur die Bilder der Einführung
+```
+
+Die Bilder der Einführung sind **echte Bildschirmfotos der laufenden
+Oberfläche** mit nummerierten Markierungen — keine gezeichneten Nachbildungen.
+Das Skript startet dafür kurz einen eigenen Server auf einer Wegwerf-Datenbank,
+legt je Fraktion ein Demokonto mit Beispielausbau an und fotografiert die
+Ausschnitte. Dadurch können Bild und Wirklichkeit nicht auseinanderlaufen:
+Ändert sich ein Knopf, zeigt der nächste Durchlauf ihn genau so.
+
+Voraussetzung ist Playwright samt Chromium. Auf einem Raspberry Pi lohnt sich
+das nicht — die Bilder gehören zum Repository und kommen mit `git pull` mit.
+
+---
+
 ## 5. Öffentlich im Internet betreiben
 
 Damit Freunde mitspielen können, muss der Server aus dem Internet erreichbar sein.
