@@ -145,6 +145,17 @@ Falls das nicht klappt, nimm die IP-Adresse aus der FRITZ!Box:
 ssh DEIN-BENUTZERNAME@192.168.178.42
 ```
 
+> **Der zuverlässigste Name ist `.local`:**
+> ```bash
+> ssh DEIN-BENUTZERNAME@sternenflotte.local
+> ```
+> `.fritz.box` löst nur die FRITZ!Box selbst auf — hängt dein Computer an einem
+> VPN, an einem Handy-Hotspot oder an einem fest eingetragenen öffentlichen
+> DNS-Server, scheitert der Name mit `Host unbekannt`, obwohl der Pi einwandfrei
+> läuft. `.local` fragt dagegen direkt im Netz nach (mDNS) und ist von DHCP,
+> IP-Adresse und DNS-Einstellungen völlig unabhängig. Windows 10/11, macOS und
+> Linux beherrschen das ohne Zusatzsoftware.
+
 Beim ersten Mal fragt SSH, ob du dem Rechner vertraust → `yes` eingeben.
 Dann dein Passwort aus Schritt 2 eingeben (die Eingabe ist unsichtbar, das ist normal).
 
@@ -632,6 +643,39 @@ Fast immer liegt es am WLAN:
 
 Im Zweifel: Karte neu beschreiben und in Schritt 2 alles noch einmal sorgfältig
 eintragen. Das geht schneller als die Fehlersuche.
+
+### Die IP-Adresse ändert sich, obwohl sie fest zugewiesen ist
+
+Die feste Zuweisung in der FRITZ!Box hängt nicht am Gerät, sondern an seiner
+**MAC-Adresse** — der Hardwarekennung des Funkmoduls. Meldet sich der Pi mit
+einer anderen MAC-Adresse an, ist er für die FRITZ!Box ein fremdes Gerät: Er
+bekommt eine neue IP, taucht als zweiter Eintrag in der Geräteliste auf, und die
+feste Zuweisung gilt weiter für die alte, nun verwaiste Kennung.
+
+Genau das passiert, wenn NetworkManager die MAC-Adresse verschleiert. Prüfen:
+
+```bash
+ip -br link show wlan0                       # welche MAC ist gerade aktiv?
+nmcli -f connection.id,802-11-wireless.cloned-mac-address connection show \
+  "$(nmcli -t -g NAME,TYPE connection show --active | awk -F: '$2=="802-11-wireless"{print $1; exit}')"
+```
+
+Steht dort `random` oder wechselt die MAC zwischen zwei Neustarts, ist die
+Ursache gefunden. Dauerhaft auf die echte Kennung festlegen:
+
+```bash
+PROFIL="$(nmcli -t -g NAME,TYPE connection show --active | awk -F: '$2=="802-11-wireless"{print $1; exit}')"
+sudo nmcli connection modify "$PROFIL" 802-11-wireless.cloned-mac-address permanent
+sudo nmcli connection modify "$PROFIL" 802-11-wireless.mac-address-randomization 1
+sudo systemctl restart NetworkManager
+```
+
+Danach in der FRITZ!Box unter **Heimnetz → Netzwerk** die verwaisten Einträge
+des Pi löschen und die feste IP-Adresse dem verbliebenen Eintrag neu zuweisen.
+
+> Unabhängig davon gilt: `sternenflotte.local` funktioniert auch dann, wenn sich
+> die IP-Adresse ändert. Wer den Namen verwendet, merkt von einem IP-Wechsel
+> überhaupt nichts.
 
 ### Der Pi antwortet gar nicht mehr — auch SSH nicht
 

@@ -4,7 +4,8 @@ Alle Befehle laufen per SSH auf dem Raspberry Pi.
 Ersetze `DEIN-BENUTZER` durch deinen Anmeldenamen.
 
 ```bash
-ssh DEIN-BENUTZER@sternenflotte.fritz.box
+ssh DEIN-BENUTZER@sternenflotte.local        # unabhaengig von IP und DNS
+ssh DEIN-BENUTZER@sternenflotte.fritz.box     # nur im eigenen Heimnetz
 ```
 
 ---
