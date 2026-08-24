@@ -70,12 +70,14 @@ export function recomputeUser(userId) {
 
   const rest = computePoints({ research, ships, defenses });
 
-  // Ein im Adminbereich gesetzter Zuschlag bleibt bei jeder Neuberechnung
-  // erhalten – sonst würde er beim nächsten Durchlauf überschrieben.
-  const bonus = db.prepare('SELECT points_bonus FROM stats WHERE user_id = ?').get(userId)?.points_bonus || 0;
+  // Ein im Adminbereich gesetzter Stand hat Vorrang und bleibt bei jeder
+  // Neuberechnung erhalten. Er wird unmittelbar uebernommen, nicht
+  // hinzugerechnet – jede Rechnung damit koennte ihn wieder verfaelschen.
+  const override = db.prepare('SELECT points_override FROM stats WHERE user_id = ?').get(userId)?.points_override;
+  const manuell = override !== null && override !== undefined && Number.isFinite(override);
 
   const next = zahlenPruefen(userId, {
-    points: eco + rest.res_points + rest.mil_points + bonus,
+    points: manuell ? override : eco + rest.res_points + rest.mil_points,
     eco_points: eco,
     res_points: rest.res_points,
     mil_points: rest.mil_points,
@@ -157,48 +159,38 @@ export function userRank(userId, type = 'points') {
 export function setPoints(userId, zielPunkte) {
   const ziel = Math.max(0, Number(zielPunkte) || 0);
 
-  // Der Zuschlag wurde frueher aus dem gespeicherten Punktestand abgeleitet
-  // (points minus bisheriger Zuschlag). War diese Zeile nicht mehr aktuell -
-  // etwa weil der Spieler seit der letzten Neuberechnung gebaut hat, oder weil
-  // es noch gar keine Zeile gab -, ging die Rechnung um genau diese Differenz
-  // daneben und der gesetzte Wert wurde verfehlt. Deshalb wird der berechnete
-  // Anteil jetzt frisch ermittelt statt geschaetzt:
-  //   1. Zuschlag auf null,
-  //   2. neu berechnen -> das ist der wahre Wert aus Besitz und Forschung,
-  //   3. Zuschlag als Differenz zum Ziel setzen,
-  //   4. noch einmal rechnen -> das Ergebnis trifft das Ziel exakt.
   db.prepare(
     `INSERT INTO stats (user_id, points, eco_points, res_points, mil_points, points_bonus, updated_at)
      VALUES (?,0,0,0,0,0,?) ON CONFLICT(user_id) DO NOTHING`
   ).run(userId, now());
 
-  db.prepare('UPDATE stats SET points_bonus = 0 WHERE user_id = ?').run(userId);
-  const berechnet = recomputeUser(userId).points;
-
-  const bonus = Number.isFinite(ziel - berechnet) ? ziel - berechnet : ziel;
-  db.prepare('UPDATE stats SET points_bonus = ? WHERE user_id = ?').run(bonus, userId);
+  // Der gewuenschte Stand wird unmittelbar abgelegt. Frueher wurde stattdessen
+  // die Differenz zum berechneten Wert gespeichert und beim naechsten Durchlauf
+  // wieder aufaddiert. Bei sehr grossen berechneten Werten - erreichbar ueber
+  // hohe Ausbaustufen im Adminbereich - loeschte die Fliesskommaarithmetik den
+  // gewuenschten Wert dabei restlos aus: Summe und Differenz ergaben exakt null.
+  db.prepare('UPDATE stats SET points_override = ?, points_bonus = 0 WHERE user_id = ?').run(ziel, userId);
   const nachher = recomputeUser(userId);
 
-  // Nachsehen, ob wirklich angekommen ist, was gewollt war. Weicht es ab,
-  // wird der Zielwert unmittelbar geschrieben, damit die Anweisung des
-  // Administrators nicht verpufft - und der Vorfall protokolliert.
+  // Der berechnete Anteil wird nur noch zur Anzeige ermittelt.
+  const berechnet = (nachher.eco_points || 0) + (nachher.res_points || 0) + (nachher.mil_points || 0);
+
   const gespeichert = db.prepare('SELECT points FROM stats WHERE user_id = ?').get(userId)?.points;
   if (!Number.isFinite(gespeichert) || Math.abs(gespeichert - ziel) > 0.5) {
     console.error(
       `[Punkte] Zielwert verfehlt bei Spieler ${userId}: gewollt ${ziel}, ` +
-      `berechnet ${berechnet}, Zuschlag ${bonus}, gespeichert ${gespeichert}. Wird direkt gesetzt.`
+      `berechnet ${berechnet}, gespeichert ${gespeichert}. Wird direkt gesetzt.`
     );
-    db.prepare('UPDATE stats SET points = ?, points_bonus = ?, updated_at = ? WHERE user_id = ?')
-      .run(ziel, ziel - (Number.isFinite(berechnet) ? berechnet : 0), now(), userId);
-    return { bonus, berechnet, points: ziel, korrigiert: true };
+    db.prepare('UPDATE stats SET points = ?, updated_at = ? WHERE user_id = ?').run(ziel, now(), userId);
+    return { berechnet, points: ziel, korrigiert: true };
   }
 
-  return { bonus, berechnet, points: nachher.points };
+  return { berechnet, points: nachher.points };
 }
 
-/** Hebt einen gesetzten Zuschlag wieder auf. */
+/** Hebt eine gesetzte Anpassung wieder auf; es zaehlt dann wieder der Besitz. */
 export function clearPointsBonus(userId) {
-  db.prepare('UPDATE stats SET points_bonus = 0 WHERE user_id = ?').run(userId);
+  db.prepare('UPDATE stats SET points_override = NULL, points_bonus = 0 WHERE user_id = ?').run(userId);
   return recomputeUser(userId);
 }
 

@@ -248,6 +248,20 @@ addColumnIfMissing('users', 'tutorial_seen', 'INTEGER NOT NULL DEFAULT 0');
 addColumnIfMissing('users', 'changelog_seen', "TEXT NOT NULL DEFAULT ''");
 addColumnIfMissing('stats', 'points_bonus', 'REAL NOT NULL DEFAULT 0');
 
+/* Ein von Hand gesetzter Punktestand wurde frueher als Differenz zum
+   berechneten Wert gespeichert ("Zuschlag"). Das scheitert, sobald der
+   berechnete Wert sehr gross wird: Bei einer Groessenordnung von 10^33 liegt
+   der Abstand zweier darstellbarer Fliesskommazahlen bei rund 10^17 - ein
+   gewuenschter Wert von 100 verschwindet darin restlos, und Summe plus
+   Differenz ergab exakt null. Deshalb wird der gewuenschte Stand jetzt
+   unmittelbar abgelegt. NULL bedeutet: keine Anpassung. */
+if (addColumnIfMissing('stats', 'points_override', 'REAL')) {
+  // Bestehende Anpassungen uebernehmen, damit niemand seinen Stand verliert.
+  db.prepare(
+    'UPDATE stats SET points_override = points WHERE points_bonus <> 0 AND points_override IS NULL'
+  ).run();
+}
+
 /* ------------------------------------------------------------------ */
 /* Hilfsfunktionen                                                     */
 /* ------------------------------------------------------------------ */

@@ -107,11 +107,10 @@ for (const [k, v] of Object.entries(berechnet)) {
 console.log(`\n4. Gesamtpunkte auf ${ziel} setzen`);
 const r = setPoints(user.id, ziel);
 zeile('aus Besitz berechnet', zahl(r.berechnet));
-zeile('gesetzter Zuschlag', zahl(r.bonus));
 zeile('Rueckgabe', zahl(r.points));
 if (r.korrigiert) zeile('Hinweis', 'musste direkt geschrieben werden');
 
-const nachher = db.prepare('SELECT points, points_bonus FROM stats WHERE user_id = ?').get(user.id);
+const nachher = db.prepare('SELECT points, points_override FROM stats WHERE user_id = ?').get(user.id);
 zeile('in der Datenbank', zahl(nachher?.points));
 zeile('Rang danach', userRank(user.id));
 

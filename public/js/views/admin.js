@@ -279,13 +279,14 @@ async function openUser(id) {
       <p class="small">
         Aus dem Besitz berechnet: <b class="mono">${fmt(d.stats.computed)}</b> Punkte
         ${d.stats.manual
-          ? `· derzeit manuell auf <b class="mono warn">${fmt(d.stats.points)}</b> gesetzt`
+          ? `· derzeit fest auf <b class="mono warn">${fmt(d.stats.points)}</b> gesetzt`
           : '· keine manuelle Anpassung'}
       </p>
       <p class="tiny muted">
         Der Rang ergibt sich aus der Punktzahl. Setzen Sie einen Rang, errechnet der Server
-        die passende Punktzahl dafür. Eine Anpassung bleibt bei künftigen Neuberechnungen erhalten.
-        Punktgleiche Spieler teilen sich einen Platz — ein dazwischenliegender Rang ist dann
+        die passende Punktzahl dafür. Ein gesetzter Wert bleibt danach genau so stehen —
+        auch wenn der Spieler weiterbaut — bis Sie ihn ändern oder die Anpassung entfernen.
+        Punktgleiche Spieler teilen sich einen Platz; ein dazwischenliegender Rang ist dann
         nicht belegbar und wird beim Setzen ausdrücklich gemeldet.
       </p>
 

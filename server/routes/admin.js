@@ -134,8 +134,8 @@ router.get('/users/:id', (req, res) => {
       res: Math.floor(stats.res_points || 0), mil: Math.floor(stats.mil_points || 0),
       rank: userRank(id),
       // Punkte, die sich allein aus Gebäuden, Forschung und Flotte ergeben
-      computed: Math.floor((stats.points || 0) - (stats.points_bonus || 0)),
-      manual: Math.abs(stats.points_bonus || 0) > 0.5,
+      computed: Math.floor((stats.eco_points || 0) + (stats.res_points || 0) + (stats.mil_points || 0)),
+      manual: stats.points_override !== null && stats.points_override !== undefined,
     },
     alliance: alliance || null,
     research: getResearch(id),
@@ -327,7 +327,7 @@ router.post('/users/:id/points', (req, res) => {
   if (b.reset) {
     const nachher = clearPointsBonus(id);
     logAdmin(req.user, 'points_reset', user.username, '');
-    return res.json({ ok: true, points: Math.floor(nachher.points), rank: userRank(id), bonus: 0 });
+    return res.json({ ok: true, points: Math.floor(nachher.points), rank: userRank(id) });
   }
 
   let gewuenschterRang = null;
@@ -360,10 +360,9 @@ router.post('/users/:id/points', (req, res) => {
     // Die Zwischenwerte gehoeren in die Meldung: aus ihnen laesst sich ablesen,
     // an welcher Stelle die Rechnung auseinanderlief, ohne die Datenbank zu oeffnen.
     hinweis = `Gespeichert wurden ${Math.floor(gespeichert)} statt ${Math.floor(ziel)} Punkte `
-      + `(aus Besitz berechnet: ${Math.round(r.berechnet)}, Zuschlag: ${Math.round(r.bonus)}). `
-      + 'Bitte diese Zahlen melden.';
+      + `(aus Besitz berechnet: ${r.berechnet}). Bitte diese Zahlen melden.`;
     console.error('[Punkte] Zielwert verfehlt:', {
-      userId: id, ziel, berechnet: r.berechnet, bonus: r.bonus,
+      userId: id, ziel, berechnet: r.berechnet,
       zurueckgelesen: gespeichert, ausSetPoints: r.points,
     });
   } else if (gewuenschterRang !== null && rang !== gewuenschterRang) {
@@ -372,10 +371,10 @@ router.post('/users/:id/points', (req, res) => {
   }
 
   logAdmin(req.user, 'points', user.username,
-    `Ziel ${Math.floor(ziel)} (Zuschlag ${Math.round(r.bonus)}) → gespeichert ${Math.floor(gespeichert)}, Rang ${rang}`);
+    `Ziel ${Math.floor(ziel)} → gespeichert ${Math.floor(gespeichert)}, Rang ${rang}`);
   res.json({
     ok: true, points: Math.floor(gespeichert), rank: rang,
-    bonus: Math.round(r.bonus), computed: Math.floor(r.berechnet ?? 0),
+    computed: Math.floor(r.berechnet ?? 0),
     ...(hinweis ? { hinweis } : {}),
   });
 });
