@@ -357,8 +357,15 @@ router.post('/users/:id/points', (req, res) => {
   // kommt niemand. Statt das stillschweigend zu verfehlen, wird es gesagt.
   let hinweis = null;
   if (verfehlt) {
-    hinweis = `Gespeichert wurden ${Math.floor(gespeichert)} statt ${Math.floor(ziel)} Punkte. `
-      + 'Bitte melden – das darf nicht vorkommen.';
+    // Die Zwischenwerte gehoeren in die Meldung: aus ihnen laesst sich ablesen,
+    // an welcher Stelle die Rechnung auseinanderlief, ohne die Datenbank zu oeffnen.
+    hinweis = `Gespeichert wurden ${Math.floor(gespeichert)} statt ${Math.floor(ziel)} Punkte `
+      + `(aus Besitz berechnet: ${Math.round(r.berechnet)}, Zuschlag: ${Math.round(r.bonus)}). `
+      + 'Bitte diese Zahlen melden.';
+    console.error('[Punkte] Zielwert verfehlt:', {
+      userId: id, ziel, berechnet: r.berechnet, bonus: r.bonus,
+      zurueckgelesen: gespeichert, ausSetPoints: r.points,
+    });
   } else if (gewuenschterRang !== null && rang !== gewuenschterRang) {
     hinweis = `Rang ${gewuenschterRang} ist derzeit nicht belegbar – bei Punktgleichstand `
       + `teilen sich mehrere Spieler einen Platz. Erreicht wurde Rang ${rang}.`;
