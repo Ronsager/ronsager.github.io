@@ -286,8 +286,8 @@ async function openUser(id) {
         Der Rang ergibt sich aus der Punktzahl. Setzen Sie einen Rang, errechnet der Server
         die passende Punktzahl dafür. Ein gesetzter Wert bleibt danach genau so stehen —
         auch wenn der Spieler weiterbaut — bis Sie ihn ändern oder die Anpassung entfernen.
-        Punktgleiche Spieler teilen sich einen Platz; ein dazwischenliegender Rang ist dann
-        nicht belegbar und wird beim Setzen ausdrücklich gemeldet.
+        Haben mehrere Spieler dieselbe Punktzahl, passt zwischen sie kein weiterer Platz;
+        welche Ränge dann belegbar sind, meldet der Server beim Setzen.
       </p>
 
       <div class="grid cols-2" style="margin-top:12px">

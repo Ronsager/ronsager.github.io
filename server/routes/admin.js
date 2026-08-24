@@ -4,7 +4,7 @@ import { config } from '../config.js';
 import { BUILDINGS, RESEARCH, SHIPS, DEFENSES, FACTIONS, RESOURCES, MISSIONS } from '../gamedata.js';
 import { authenticate, requireAdmin, hashPassword, ROLES } from '../auth.js';
 import { tickPlanet, createPlanet, findHomeworldSlot, planetSnapshot, addDebris } from '../engine/planet.js';
-import { recomputeUser, recomputeAll, setPoints, clearPointsBonus, pointsForRank, userRank } from '../engine/stats.js';
+import { recomputeUser, recomputeAll, setPoints, clearPointsBonus, pointsForRank, userRank, erreichbareRaenge, groesstePunktgleichheit } from '../engine/stats.js';
 import { sendMessage, broadcast } from '../engine/messages.js';
 import { queueView } from '../engine/queue.js';
 import { listEntries, ensureCurrentEntry } from '../engine/changelog.js';
@@ -366,8 +366,16 @@ router.post('/users/:id/points', (req, res) => {
       zurueckgelesen: gespeichert, ausSetPoints: r.points,
     });
   } else if (gewuenschterRang !== null && rang !== gewuenschterRang) {
-    hinweis = `Rang ${gewuenschterRang} ist derzeit nicht belegbar – bei Punktgleichstand `
-      + `teilen sich mehrere Spieler einen Platz. Erreicht wurde Rang ${rang}.`;
+    // Statt nur zu melden, dass es nicht ging: sagen, was geht und warum nicht.
+    const moeglich = erreichbareRaenge(id);
+    const gleich = groesstePunktgleichheit(id);
+    hinweis = `Rang ${gewuenschterRang} ist nicht belegbar, erreicht wurde Rang ${rang}. `
+      + (gleich.anzahl > 1
+        ? `${gleich.anzahl} Spieler haben ${Math.floor(gleich.punkte)} Punkte und teilen sich diesen Bereich; `
+          + 'zwischen punktgleiche Spieler passt kein weiterer Platz. '
+          + 'Geben Sie ihnen unterschiedliche Punktzahlen, dann sind alle Ränge frei wählbar. '
+        : '')
+      + `Belegbar sind derzeit: ${moeglich.join(', ')}.`;
   }
 
   logAdmin(req.user, 'points', user.username,

@@ -133,14 +133,30 @@ export function highscore(type = 'points', limit = 100, offset = 0) {
   return rows.map((r, i) => ({ rank: offset + i + 1, ...r, points: Math.floor(r[column]) }));
 }
 
+/**
+ * Rang eines Spielers – gezaehlt wie in der Rangliste.
+ *
+ * Beide Stellen muessen dieselbe Reihenfolge verwenden, sonst widersprechen
+ * sie einander. Frueher zaehlte diese Funktion nur, wie viele Spieler echt
+ * mehr Punkte haben: Punktgleiche teilten sich damit einen Platz, und bei
+ * mehreren Spielern mit null Punkten meldete sie fuer alle Rang 1 – waehrend
+ * die Rangliste sie als 1, 2, 3, 4 auffuehrte. Ein im Adminbereich gesetzter
+ * Rang liess sich deshalb nie bestaetigen. Jetzt gilt fuer beide dieselbe
+ * Ordnung: Punkte absteigend, bei Gleichstand die kleinere Kennnummer zuerst.
+ * Spieler ohne Statistikzeile zaehlen mit null Punkten mit.
+ */
 export function userRank(userId, type = 'points') {
   const column = { points: 'points', eco: 'eco_points', res: 'res_points', mil: 'mil_points' }[type] || 'points';
   const row = db
     .prepare(
-      `SELECT COUNT(*) + 1 AS rank FROM stats
-       WHERE ${column} > (SELECT COALESCE(${column},0) FROM stats WHERE user_id = ?)`
+      `SELECT COUNT(*) + 1 AS rank
+       FROM users u LEFT JOIN stats s ON s.user_id = u.id
+       WHERE u.id != ?
+         AND (COALESCE(s.${column},0) > (SELECT COALESCE(${column},0) FROM stats WHERE user_id = ?)
+              OR (COALESCE(s.${column},0) = (SELECT COALESCE(${column},0) FROM stats WHERE user_id = ?)
+                  AND u.id < ?))`
     )
-    .get(userId);
+    .get(userId, userId, userId, userId);
   return row?.rank ?? null;
 }
 
@@ -194,42 +210,90 @@ export function clearPointsBonus(userId) {
   return recomputeUser(userId);
 }
 
-/**
- * Ermittelt die Punktzahl, die nötig ist, um einen bestimmten Rang zu belegen.
- * Gerechnet wird knapp über dem derzeitigen Inhaber dieses Platzes.
- */
-export function pointsForRank(userId, zielRang) {
-  const andere = db
-    .prepare('SELECT points FROM stats WHERE user_id != ? ORDER BY points DESC')
-    .all(userId)
-    .map((r) => r.points || 0);
-  const n = andere.length;
+/* ------------------------------------------------------------------ */
+/* Rangvergabe                                                         */
+/* ------------------------------------------------------------------ */
 
-  // Mehr Plaetze als Spieler gibt es nicht: Rang n+1 ist der letzte.
-  const rang = Math.min(Math.max(1, Math.floor(zielRang) || 1), n + 1);
-
-  // Der Rang zaehlt, wie viele andere echt mehr Punkte haben. Fuer Rang R
-  // muessen also genau R-1 Spieler oberhalb liegen.
-  if (rang === 1) return (andere[0] ?? 0) + 1;
-  if (rang === n + 1) return Math.max(0, (andere[n - 1] ?? 0) - 1);
-
-  const oben = andere[rang - 2];   // soll kuenftig direkt darueber stehen
-  const unten = andere[rang - 1];  // soll kuenftig direkt darunter stehen
-
-  // Genau den Wert des Unteren zu nehmen genuegt: er zaehlt dann nicht mehr
-  // als "darueber", der Obere schon. Frueher wurde die Mitte gewaehlt, was bei
-  // dicht beieinanderliegenden Staenden auf denselben Wert gerundet wurde.
-  if (oben > unten) return unten;
-
-  // Gleichstand: Dieser Rang ist nicht erreichbar, ohne die Gleichstaende
-  // aufzubrechen. Der Spieler reiht sich in die Gruppe ein.
-  return unten;
+/** Alle uebrigen Spieler in der Reihenfolge der Rangliste. */
+function andereSpieler(userId) {
+  return db
+    .prepare(
+      `SELECT u.id AS id, COALESCE(s.points, 0) AS points
+       FROM users u LEFT JOIN stats s ON s.user_id = u.id
+       WHERE u.id != ?
+       ORDER BY points DESC, u.id ASC`
+    )
+    .all(userId);
 }
 
-/** Rang, den ein Punktestand ergaebe - ohne etwas zu veraendern. */
-export function rankForPoints(userId, punkte) {
-  const row = db
-    .prepare('SELECT COUNT(*) + 1 AS rank FROM stats WHERE user_id != ? AND points > ?')
-    .get(userId, punkte);
-  return row?.rank ?? 1;
+/** Welchen Rang belegte der Spieler mit dieser Punktzahl? */
+function rangFuerWert(andere, userId, wert) {
+  let oben = 0;
+  for (const o of andere) {
+    if (o.points > wert || (o.points === wert && o.id < userId)) oben += 1;
+  }
+  return oben + 1;
+}
+
+/**
+ * Punktzahlen, die ueberhaupt einen Rangwechsel bewirken koennen.
+ *
+ * Zwischen zwei gleichen Punktstaenden gibt es keinen Platz - deshalb kommen
+ * je vorhandenem Punktestand drei Werte in Frage: knapp darueber, genau
+ * darauf (dann entscheidet die Kennnummer) und knapp darunter.
+ */
+function kandidaten(andere) {
+  const werte = new Set([0]);
+  for (const o of andere) {
+    werte.add(o.points);
+    werte.add(o.points + 1);
+    werte.add(Math.max(0, o.points - 1));
+  }
+  return [...werte].sort((a, b) => b - a);
+}
+
+/**
+ * Ermittelt die Punktzahl, mit der ein Spieler den gewuenschten Rang belegt.
+ *
+ * Gerechnet wird gegen dieselbe Reihenfolge, die auch die Rangliste benutzt.
+ * Ist der Rang nicht erreichbar - weil sich mehrere Spieler punktgleich einen
+ * Bereich teilen -, wird der naechstgelegene erreichbare Rang angesteuert.
+ */
+export function pointsForRank(userId, zielRang) {
+  const andere = andereSpieler(userId);
+  const jetzt = db.prepare('SELECT COALESCE(points,0) AS points FROM stats WHERE user_id = ?').get(userId)?.points ?? 0;
+  if (!andere.length) return jetzt;   // ohne Mitspieler gibt es nur Rang 1
+
+  const rang = Math.min(Math.max(1, Math.floor(zielRang) || 1), andere.length + 1);
+  if (rangFuerWert(andere, userId, jetzt) === rang) return jetzt;   // schon erreicht
+
+  const liste = kandidaten(andere);
+  const treffer = liste.find((w) => rangFuerWert(andere, userId, w) === rang);
+  if (treffer !== undefined) return treffer;
+
+  let bester = liste[0];
+  let abstand = Infinity;
+  for (const w of liste) {
+    const d = Math.abs(rangFuerWert(andere, userId, w) - rang);
+    if (d < abstand) { abstand = d; bester = w; }
+  }
+  return bester;
+}
+
+/** Welche Raenge sind bei den derzeitigen Punktestaenden ueberhaupt belegbar? */
+export function erreichbareRaenge(userId) {
+  const andere = andereSpieler(userId);
+  if (!andere.length) return [1];
+  const raenge = new Set(kandidaten(andere).map((w) => rangFuerWert(andere, userId, w)));
+  return [...raenge].sort((a, b) => a - b);
+}
+
+/** Wie viele Spieler teilen sich den haeufigsten Punktestand? */
+export function groesstePunktgleichheit(userId) {
+  const andere = andereSpieler(userId);
+  const zaehler = new Map();
+  for (const o of andere) zaehler.set(o.points, (zaehler.get(o.points) || 0) + 1);
+  let punkte = 0, anzahl = 0;
+  for (const [p, n] of zaehler) if (n > anzahl) { anzahl = n; punkte = p; }
+  return { punkte, anzahl };
 }
