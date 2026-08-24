@@ -633,6 +633,88 @@ Fast immer liegt es am WLAN:
 Im Zweifel: Karte neu beschreiben und in Schritt 2 alles noch einmal sorgfältig
 eintragen. Das geht schneller als die Fehlersuche.
 
+### Der Pi antwortet gar nicht mehr — auch SSH nicht
+
+Wichtig zur Einordnung: **SSH gehört zum Betriebssystem, nicht zum Spiel.**
+Wenn SSH nicht mehr antwortet, ist nicht der Spielserver das Problem — dann ist
+der Pi selbst nicht erreichbar. Ein abgestürzter Spielserver lässt SSH völlig
+unberührt.
+
+Der Reihe nach, von oben nach unten:
+
+**1. Zeit lassen.** Ein Zero 2 W braucht bis zu drei Minuten zum Starten. Nach
+einem Stromausfall kommt eine Dateisystemprüfung hinzu — dann können es auch
+fünf bis zehn Minuten sein. Vorher lohnt das Suchen nicht.
+
+**2. Steht der Pi im Heimnetz?** <http://fritz.box> → **Heimnetz → Netzwerk**.
+Steht `sternenflotte` dort als *verbunden*, samt IP-Adresse?
+
+* **Nicht in der Liste** → der Pi hat kein WLAN. Weiter bei Punkt 4.
+* **In der Liste, aber „nicht verbunden"** → er war da und ist weg. Weiter bei Punkt 4.
+* **Verbunden mit IP** → weiter bei Punkt 3.
+
+**3. Antwortet er auf ein Ping?** Auf dem eigenen Computer:
+
+```bash
+ping sternenflotte.fritz.box          # macOS/Linux
+ping -n 4 sternenflotte.fritz.box     # Windows PowerShell
+```
+
+Antwortet er, aber SSH nicht, zeigt dieser Aufruf, woran es hakt:
+
+```bash
+ssh -v DEIN-BENUTZERNAME@sternenflotte.fritz.box
+```
+
+* `Connection refused` → der Pi läuft, der SSH-Dienst nicht. Das deutet auf eine
+  beschädigte Karte hin — weiter bei Punkt 5.
+* `Connection timed out` → keine Antwort. Weiter bei Punkt 4.
+* `Permission denied` → der Pi ist in Ordnung, nur Benutzername oder Passwort
+  stimmen nicht.
+
+**4. Strom und Karte prüfen.** In dieser Reihenfolge:
+
+* Leuchtet die grüne LED? Ein kurzes Flackern beim Einstecken und dann nichts
+  mehr heißt: Der Pi kommt nicht über den Startvorgang hinaus.
+* **Anderes Netzteil** ausprobieren, mindestens 5 V / 2 A. Unterversorgung ist
+  die häufigste Ursache für einen Pi, der scheinbar grundlos verstummt.
+* Karte einmal herausnehmen, Kontakte ansehen, wieder einsetzen.
+
+**5. Karte am Computer prüfen.** Steckt die Karte im Kartenleser, sollte
+mindestens die kleine Boot-Partition (`bootfs`) sichtbar sein. Ist sie es nicht,
+oder meldet der Computer sie als unlesbar, ist die Karte beschädigt.
+
+Unter Linux oder macOS lässt sich das Dateisystem oft reparieren
+(`/dev/sdX2` durch das tatsächliche Gerät ersetzen — Vorsicht, das falsche
+Gerät zerstört andere Daten):
+
+```bash
+sudo fsck -y /dev/sdX2
+```
+
+Hilft das nicht, wird die Karte neu beschrieben (Schritt 2 dieser Anleitung).
+Die Spielstände sind dann nur über eine Sicherung zurückzuholen — deshalb steht
+in `BEFEHLE.md`, wie man Sicherungen regelmäßig auf den eigenen Rechner holt.
+
+> **Warum das passiert:** Ein Pi vom Strom zu trennen, während er läuft, ist der
+> häufigste Weg, eine SD-Karte zu beschädigen — mitten in einem Schreibvorgang
+> bleibt das Dateisystem in einem halben Zustand zurück. Wo es geht, deshalb
+> immer `sudo shutdown -h now` und erst nach dem Erlöschen der grünen LED den
+> Stecker ziehen. Als Notlösung bei einem hängenden Pi bleibt das Trennen
+> natürlich zulässig — es ist nur nichts, was man ohne Not tut.
+
+**6. Wieder drin — was war los?** Sobald SSH wieder antwortet:
+
+```bash
+journalctl --list-boots | tail -5              # wurde sauber heruntergefahren?
+journalctl -b -1 -n 60 --no-pager              # letzte Zeilen des vorherigen Starts
+dmesg | grep -iE "ext4|i/o error|voltage"      # Karten- und Spannungsfehler
+sudo systemctl status star-trek-conquest       # und was macht das Spiel?
+```
+
+Taucht `Under-voltage detected` auf, war das Netzteil zu schwach — dann ist ein
+stärkeres die eigentliche Abhilfe, nicht ein weiterer Neustart.
+
 ### `Job for star-trek-conquest.service failed because of unavailable resources`
 
 Diese Meldung kommt von systemd, nicht vom Spiel: Der Dienst durfte seinen
