@@ -74,20 +74,40 @@ function setVersion(version, build) {
  * unerklärlich ausbleiben, erscheint ein Hinweis zum Neuladen.
  */
 let standHinweisGezeigt = false;
-function pruefeStand(serverBuild) {
-  if (!serverBuild || standHinweisGezeigt) return;
+/* Zwei Ursachen fuehren dazu, dass eine Aktualisierung nicht ankommt, und sie
+   verlangen entgegengesetzte Massnahmen:
+   1. Der Browser haelt alte Dateien fest  -> neu laden hilft.
+   2. Der Dienst wurde nach dem git pull nicht neu gestartet -> neu laden
+      hilft gerade nicht, der Dienst muss neu gestartet werden.
+   Frueher war nur der erste Fall erkennbar. */
+function pruefeStand(daten) {
+  if (standHinweisGezeigt) return;
+  const serverBuild = typeof daten === 'string' ? daten : daten?.build;
+  const laufend = typeof daten === 'string' ? null : daten?.serverBuild;
+  const neustartNoetig = typeof daten === 'object' && daten?.restartPending === true;
   const geladen = document.querySelector('meta[name="stc-build"]')?.content;
-  if (!geladen || geladen === serverBuild) return;
+
+  let text = null;
+  if (neustartNoetig && laufend) {
+    text = `Der Dienst läuft noch mit dem Stand <b class="mono">${esc(laufend)}</b>, `
+      + `auf der Platte liegt <b class="mono">${esc(serverBuild)}</b>. `
+      + `Ein Neuladen genügt hier nicht – der Dienst muss neu gestartet werden `
+      + `(<span class="mono">sudo systemctl restart star-trek-conquest</span>).`;
+  } else if (serverBuild && geladen && geladen !== serverBuild) {
+    text = `Der Browser führt noch eine ältere Fassung aus `
+      + `(<b class="mono">${esc(geladen)}</b>, auf dem Server liegt <b class="mono">${esc(serverBuild)}</b>). `
+      + `Änderungen wirken erst nach dem Neuladen.`;
+  }
+  if (!text) return;
 
   standHinweisGezeigt = true;
   const leiste = el(`<div class="stale-banner">
-    <span>Der Browser führt noch eine ältere Fassung aus
-      (<b class="mono">${esc(geladen)}</b>, auf dem Server liegt <b class="mono">${esc(serverBuild)}</b>).
-      Änderungen wirken erst nach dem Neuladen.</span>
-    <button id="stale-reload">Jetzt neu laden</button>
+    <span>${text}</span>
+    ${neustartNoetig ? '' : '<button id="stale-reload">Jetzt neu laden</button>'}
   </div>`);
   document.body.appendChild(leiste);
-  leiste.querySelector('#stale-reload').addEventListener('click', () => {
+  const knopf = leiste.querySelector('#stale-reload');
+  if (knopf) knopf.addEventListener('click', () => {
     // location.reload(true) ist überholt; ein Zeitstempel erzwingt frische Dateien
     location.href = location.pathname + '?frisch=' + Date.now() + location.hash;
   });
@@ -213,6 +233,8 @@ async function initAuthScreen({ erzwingen = false } = {}) {
           (pre ? '<span class="ver-tag">Beta</span> ' : '') + 'Version ' + esc(cfg.version) +
           (cfg.build ? ' <span class="build-id">' + esc(cfg.build) + '</span>' : '');
       }
+
+      pruefeStand(cfg);
 
       const factions = Array.isArray(cfg.factions) ? cfg.factions : [];
       if (factions.length) {
@@ -452,7 +474,7 @@ export async function refresh(rerender = false) {
     window.__stcUserId = data.user.id;   // für Ansichten, die eigene Beiträge erkennen müssen
     applyFactionTheme(data.user.faction);
     setVersion(data.version, data.build);
-    pruefeStand(data.build);
+    pruefeStand(data);
     renderHeader();
     renderResourceBar();
     renderSidebar();

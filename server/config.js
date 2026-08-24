@@ -42,8 +42,31 @@ function readBuild() {
   }
 }
 
-const buildState = { id: readBuild() };
-export const getBuild = () => buildState.id;
+/* Zwei verschiedene Staende, die man auseinanderhalten muss:
+   - der Stand der Dateien auf der Platte (aendert sich mit jedem git pull),
+   - der Stand, mit dem der laufende Prozess gestartet wurde.
+   Weichen sie voneinander ab, wurde zwar aktualisiert, aber der Dienst nicht
+   neu gestartet: Das Frontend kommt dann frisch von der Platte, die
+   Serverlogik ist noch die alte. Genau dieser Fall blieb bisher unsichtbar. */
+const buildState = { started: readBuild(), id: readBuild(), geprueft: Date.now() };
+
+function currentBuild() {
+  if (Date.now() - buildState.geprueft > 5000) {
+    buildState.id = readBuild();
+    buildState.geprueft = Date.now();
+  }
+  return buildState.id;
+}
+
+/** Stand der Dateien auf der Platte. */
+export const getBuild = () => currentBuild();
+/** Stand, mit dem der laufende Prozess gestartet wurde. */
+export const getRunningBuild = () => buildState.started;
+/** Wahr, wenn aktualisiert, aber noch nicht neu gestartet wurde. */
+export function needsRestart() {
+  const jetzt = currentBuild();
+  return jetzt !== 'unbekannt' && buildState.started !== 'unbekannt' && jetzt !== buildState.started;
+}
 
 export const getVersion = () => versionState.current;
 export const getPackageVersion = () => versionState.fromPackage;

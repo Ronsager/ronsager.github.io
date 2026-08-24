@@ -80,6 +80,57 @@ Danach im Browser einmal **Strg + Umschalt + R** drücken.
 > sudo ./deploy/install-service.sh
 > ```
 
+### Die Aktualisierung kommt nicht an
+
+Unten auf der Seite steht neben der Versionsnummer eine siebenstellige
+**Stand-Kennung** (zum Beispiel `083594d`). Sie kommt vom Server, nicht aus dem
+Browser. Zeigt sie einen alten Wert, hilft Zwischenspeicher löschen **nicht** —
+dann ist der Server alt, nicht die Anzeige.
+
+Dieser Befehl beantwortet in einem Durchgang, woran es liegt:
+
+```bash
+cd ~/star-trek-conquest && {
+  echo "Verzeichnis des Dienstes : $(systemctl show -p WorkingDirectory --value star-trek-conquest)"
+  echo "Hier ausgechecktes Ziel  : $(pwd)"
+  echo "Zweig                    : $(git rev-parse --abbrev-ref HEAD)"
+  echo "Stand auf der Platte     : $(git rev-parse --short HEAD)"
+  echo "Dienst laeuft seit       : $(systemctl show -p ActiveEnterTimestamp --value star-trek-conquest)"
+  echo "Vom Server gemeldet      : $(curl -s localhost:3000/api/auth/config | grep -o '\"build\":\"[^\"]*\"')"
+  echo "Ausstehende Aenderungen  : $(git status --porcelain | wc -l) Datei(en)"
+}
+```
+
+Die drei möglichen Befunde:
+
+| Befund | Bedeutung | Abhilfe |
+| --- | --- | --- |
+| „Verzeichnis des Dienstes" weicht von „Hier ausgechecktes Ziel" ab | `git pull` läuft in einem anderen Ordner als dem, aus dem der Dienst startet | im richtigen Ordner aktualisieren, oder `sudo ./deploy/install-service.sh` |
+| „Stand auf der Platte" ist neu, „Vom Server gemeldet" ist alt | aktualisiert, aber nicht neu gestartet | `sudo systemctl restart star-trek-conquest` |
+| „Stand auf der Platte" ist selbst alt | `git pull` hat nichts geholt — meist wegen eines falschen Zweigs oder lokaler Änderungen | siehe unten |
+
+Bleibt der Stand auf der Platte alt, zeigt dieser Befehl den Grund im Klartext:
+
+```bash
+cd ~/star-trek-conquest
+git fetch origin && git status
+```
+
+Meldet Git lokale Änderungen, die dem Herunterladen im Weg stehen, und sollen
+diese verworfen werden (die Datenbank und die `.env` sind davon nicht betroffen,
+sie liegen außerhalb der Versionsverwaltung):
+
+```bash
+cd ~/star-trek-conquest
+git stash                      # lokale Änderungen beiseitelegen
+git pull
+sudo systemctl restart star-trek-conquest
+```
+
+Seit Fassung `0.9.0-beta.2` meldet die Seite den zweiten Fall selbst: Läuft der
+Dienst noch mit einem älteren Stand als dem auf der Platte, erscheint unten eine
+Leiste mit genau diesem Hinweis.
+
 ---
 
 ## 4. Datensicherung

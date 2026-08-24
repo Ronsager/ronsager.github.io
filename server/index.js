@@ -131,7 +131,10 @@ app.use(
 
 // Alle übrigen Pfade an die Single-Page-App weiterreichen
 app.get(/^\/(?!api\/).*/, (req, res) => {
-  res.sendFile(path.join(ROOT, 'public', 'index.html'));
+  // Auch hier die Stand-Kennung einbetten - sonst erkennt eine direkt
+  // aufgerufene Unterseite eine veraltete Fassung nicht.
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(renderIndex());
 });
 
 app.use((err, req, res, _next) => {
