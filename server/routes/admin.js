@@ -330,9 +330,10 @@ router.post('/users/:id/points', (req, res) => {
     return res.json({ ok: true, points: Math.floor(nachher.points), rank: userRank(id), bonus: 0 });
   }
 
+  let gewuenschterRang = null;
   if (b.rank !== undefined && b.rank !== '') {
-    const rang = Math.max(1, Math.floor(Number(b.rank) || 1));
-    ziel = pointsForRank(id, rang);
+    gewuenschterRang = Math.max(1, Math.floor(Number(b.rank) || 1));
+    ziel = pointsForRank(id, gewuenschterRang);
   } else if (b.points !== undefined && b.points !== '') {
     ziel = Number(b.points);
   } else {
@@ -343,10 +344,33 @@ router.post('/users/:id/points', (req, res) => {
     return res.status(400).json({ error: 'Ungültiger Wert. Zulässig sind 0 bis 1.000.000.000.000 Punkte.' });
 
   const r = setPoints(id, ziel);
+
+  // Zurueckgemeldet wird, was tatsaechlich in der Datenbank steht - nicht das,
+  // was die Rechnung ergeben sollte. Weicht beides ab, erfaehrt der
+  // Administrator es sofort, statt es fuer "nicht uebernommen" zu halten.
+  const gespeichert = db.prepare('SELECT points FROM stats WHERE user_id = ?').get(id)?.points ?? 0;
+  const verfehlt = Math.abs(gespeichert - ziel) > 0.5;
   const rang = userRank(id);
+
+  // Nicht jeder Rang ist erreichbar: Stehen mehrere Spieler punktgleich, gibt
+  // es den dazwischenliegenden Platz schlicht nicht, und unter null Punkte
+  // kommt niemand. Statt das stillschweigend zu verfehlen, wird es gesagt.
+  let hinweis = null;
+  if (verfehlt) {
+    hinweis = `Gespeichert wurden ${Math.floor(gespeichert)} statt ${Math.floor(ziel)} Punkte. `
+      + 'Bitte melden – das darf nicht vorkommen.';
+  } else if (gewuenschterRang !== null && rang !== gewuenschterRang) {
+    hinweis = `Rang ${gewuenschterRang} ist derzeit nicht belegbar – bei Punktgleichstand `
+      + `teilen sich mehrere Spieler einen Platz. Erreicht wurde Rang ${rang}.`;
+  }
+
   logAdmin(req.user, 'points', user.username,
-    `Ziel ${Math.floor(ziel)} (Zuschlag ${Math.round(r.bonus)}) → Rang ${rang}`);
-  res.json({ ok: true, points: Math.floor(r.points), rank: rang, bonus: Math.round(r.bonus) });
+    `Ziel ${Math.floor(ziel)} (Zuschlag ${Math.round(r.bonus)}) → gespeichert ${Math.floor(gespeichert)}, Rang ${rang}`);
+  res.json({
+    ok: true, points: Math.floor(gespeichert), rank: rang,
+    bonus: Math.round(r.bonus), computed: Math.floor(r.berechnet ?? 0),
+    ...(hinweis ? { hinweis } : {}),
+  });
 });
 
 router.post('/users/:id/research', (req, res) => {

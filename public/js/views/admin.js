@@ -285,6 +285,8 @@ async function openUser(id) {
       <p class="tiny muted">
         Der Rang ergibt sich aus der Punktzahl. Setzen Sie einen Rang, errechnet der Server
         die passende Punktzahl dafür. Eine Anpassung bleibt bei künftigen Neuberechnungen erhalten.
+        Punktgleiche Spieler teilen sich einen Platz — ein dazwischenliegender Rang ist dann
+        nicht belegbar und wird beim Setzen ausdrücklich gemeldet.
       </p>
 
       <div class="grid cols-2" style="margin-top:12px">
@@ -408,6 +410,9 @@ async function openUser(id) {
     try {
       const r = await api.post(`/admin/users/${id}/points`, payload);
       toast(`${hinweis}: ${fmt(r.points)} Punkte, Rang ${r.rank}`, 'success');
+      // Ein nicht belegbarer Rang wird ausdrücklich gemeldet, statt einfach
+      // einen abweichenden Platz anzuzeigen.
+      if (r.hinweis) toast(r.hinweis, 'error');
       closeModal(); openUser(id);
     } catch (err) { toast(err.message, 'error'); }
   };

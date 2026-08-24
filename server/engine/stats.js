@@ -132,16 +132,30 @@ export function userRank(userId, type = 'points') {
  * Punktestand selbst gespeichert, sondern die Differenz als Zuschlag.
  */
 export function setPoints(userId, zielPunkte) {
-  const row = db.prepare('SELECT points, points_bonus FROM stats WHERE user_id = ?').get(userId);
-  if (!row) {
-    db.prepare('INSERT INTO stats (user_id, points, points_bonus, updated_at) VALUES (?,?,?,?)')
-      .run(userId, Number(zielPunkte) || 0, Number(zielPunkte) || 0, now());
-    return { bonus: Number(zielPunkte) || 0, points: Number(zielPunkte) || 0 };
-  }
-  const berechnet = row.points - (row.points_bonus || 0);   // Punkte ohne Zuschlag
-  const bonus = Number(zielPunkte) - berechnet;
+  const ziel = Math.max(0, Number(zielPunkte) || 0);
+
+  // Der Zuschlag wurde frueher aus dem gespeicherten Punktestand abgeleitet
+  // (points minus bisheriger Zuschlag). War diese Zeile nicht mehr aktuell -
+  // etwa weil der Spieler seit der letzten Neuberechnung gebaut hat, oder weil
+  // es noch gar keine Zeile gab -, ging die Rechnung um genau diese Differenz
+  // daneben und der gesetzte Wert wurde verfehlt. Deshalb wird der berechnete
+  // Anteil jetzt frisch ermittelt statt geschaetzt:
+  //   1. Zuschlag auf null,
+  //   2. neu berechnen -> das ist der wahre Wert aus Besitz und Forschung,
+  //   3. Zuschlag als Differenz zum Ziel setzen,
+  //   4. noch einmal rechnen -> das Ergebnis trifft das Ziel exakt.
+  db.prepare(
+    `INSERT INTO stats (user_id, points, eco_points, res_points, mil_points, points_bonus, updated_at)
+     VALUES (?,0,0,0,0,0,?) ON CONFLICT(user_id) DO NOTHING`
+  ).run(userId, now());
+
+  db.prepare('UPDATE stats SET points_bonus = 0 WHERE user_id = ?').run(userId);
+  const berechnet = recomputeUser(userId).points;
+
+  const bonus = ziel - berechnet;
   db.prepare('UPDATE stats SET points_bonus = ? WHERE user_id = ?').run(bonus, userId);
   const nachher = recomputeUser(userId);
+
   return { bonus, berechnet, points: nachher.points };
 }
 
@@ -156,16 +170,37 @@ export function clearPointsBonus(userId) {
  * Gerechnet wird knapp über dem derzeitigen Inhaber dieses Platzes.
  */
 export function pointsForRank(userId, zielRang) {
-  const liste = db
-    .prepare('SELECT user_id, points FROM stats WHERE user_id != ? ORDER BY points DESC')
-    .all(userId);
-  const rang = Math.max(1, Math.floor(zielRang));
+  const andere = db
+    .prepare('SELECT points FROM stats WHERE user_id != ? ORDER BY points DESC')
+    .all(userId)
+    .map((r) => r.points || 0);
+  const n = andere.length;
 
-  if (rang === 1) return (liste[0]?.points || 0) + 1;
-  const davor = liste[rang - 2];        // Spieler, der künftig direkt darüber steht
-  const danach = liste[rang - 1];       // Spieler, der künftig direkt darunter steht
-  if (!davor) return (liste[liste.length - 1]?.points || 0) + 1;
-  if (!danach) return Math.max(0, davor.points - 1);
-  // Genau zwischen beide legen; bei gleichen Werten knapp darunter
-  return davor.points > danach.points ? (davor.points + danach.points) / 2 : Math.max(0, danach.points - 1);
+  // Mehr Plaetze als Spieler gibt es nicht: Rang n+1 ist der letzte.
+  const rang = Math.min(Math.max(1, Math.floor(zielRang) || 1), n + 1);
+
+  // Der Rang zaehlt, wie viele andere echt mehr Punkte haben. Fuer Rang R
+  // muessen also genau R-1 Spieler oberhalb liegen.
+  if (rang === 1) return (andere[0] ?? 0) + 1;
+  if (rang === n + 1) return Math.max(0, (andere[n - 1] ?? 0) - 1);
+
+  const oben = andere[rang - 2];   // soll kuenftig direkt darueber stehen
+  const unten = andere[rang - 1];  // soll kuenftig direkt darunter stehen
+
+  // Genau den Wert des Unteren zu nehmen genuegt: er zaehlt dann nicht mehr
+  // als "darueber", der Obere schon. Frueher wurde die Mitte gewaehlt, was bei
+  // dicht beieinanderliegenden Staenden auf denselben Wert gerundet wurde.
+  if (oben > unten) return unten;
+
+  // Gleichstand: Dieser Rang ist nicht erreichbar, ohne die Gleichstaende
+  // aufzubrechen. Der Spieler reiht sich in die Gruppe ein.
+  return unten;
+}
+
+/** Rang, den ein Punktestand ergaebe - ohne etwas zu veraendern. */
+export function rankForPoints(userId, punkte) {
+  const row = db
+    .prepare('SELECT COUNT(*) + 1 AS rank FROM stats WHERE user_id != ? AND points > ?')
+    .get(userId, punkte);
+  return row?.rank ?? 1;
 }
